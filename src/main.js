@@ -91,7 +91,6 @@ let infoReturn = "title";
 const openInfo = (name, ret) => { infoReturn = ret; ui.show(name); };
 
 on("btn-start", () => game.newGame());
-on("btn-daily", () => game.startDaily());
 on("btn-how", () => openInfo("how", "title"));
 on("btn-legend", () => openInfo("legend", "title"));
 on("btn-how-back", () => ui.show(infoReturn));

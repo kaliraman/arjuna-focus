@@ -4,7 +4,6 @@
 
 import { getLevel, LEVEL_COUNT } from "./levels.js";
 import { scoreShot, starsFor } from "./scoring.js";
-import { mulberry32, hashStr, todayKey } from "./util.js";
 
 const STEADY_SPEED = 70;
 const FOCUS_UP = 0.55;
@@ -28,24 +27,11 @@ export class Game {
     this.bestCombo = 0;
     this.arrowReadyAt = 0;
     this.inFlight = 0;       // arrows currently in the air
-    this.daily = false;
-    this.dailyKey = null;
-    this.lastSavedTs = null;
     this._ending = false;
   }
 
   // ---- run lifecycle --------------------------------------------------------
   newGame() {
-    this.daily = false;
-    this.dailyKey = null;
-    this.scene.setRng(Math.random);
-    this._startRun();
-  }
-
-  startDaily() {
-    this.daily = true;
-    this.dailyKey = todayKey();
-    this.scene.setRng(mulberry32(hashStr(this.dailyKey)));
     this._startRun();
   }
 

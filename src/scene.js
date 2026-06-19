@@ -21,7 +21,7 @@ export class Scene {
 
     this.cfg = { motion: 0.4, ripple: 0.5, distraction: 0, clarityFlash: false };
     this.focus = 0;
-    this.rng = Math.random;  // swapped to a seeded RNG for the Daily Challenge
+    this.rng = Math.random;  // distraction randomness (injectable)
 
     this.distractions = [];
     this.impacts = [];       // expanding hit rings
