@@ -27,6 +27,7 @@ export class Game {
     this.combo = 0;          // consecutive scoring hits (across the whole run)
     this.bestCombo = 0;
     this.arrowReadyAt = 0;
+    this.inFlight = 0;       // arrows currently in the air
     this.daily = false;
     this.dailyKey = null;
     this.lastSavedTs = null;
@@ -66,6 +67,7 @@ export class Game {
     this.focus = 0;
     this.scene.focus = 0;
     this.arrowReadyAt = performance.now();
+    this.inFlight = 0;
     this._ending = false;
 
     this.state = "playing";
@@ -74,7 +76,8 @@ export class Game {
     this.ui.setHud({
       level: this.levelIndex + 1,
       levelName: cfg.name,
-      score: this.score,
+      levelScore: 0,
+      target: cfg.target,
       arrows: cfg.arrows,
       arrowsUsed: 0,
       combo: this.combo,
@@ -101,7 +104,7 @@ export class Game {
   // ---- firing ---------------------------------------------------------------
   fire(pos) {
     if (this.state !== "playing") return;
-    if (this.arrowsUsed >= this.cfg.arrows) return; // out of shots
+    if (this.arrowsUsed >= this.cfg.arrows) return; // no arrows left mid-flight
 
     const eye = this.scene.getEye();
     const dist = Math.hypot(pos.x - eye.x, pos.y - eye.y);
@@ -118,17 +121,18 @@ export class Game {
     });
 
     this.arrowsUsed += 1;
+    this.inFlight += 1;
     this.focus *= 0.45;
     this.arrowReadyAt = performance.now();
     this.ui.setHud({ arrows: this.cfg.arrows, arrowsUsed: this.arrowsUsed });
 
-    // No projectile — the shot lands instantly at the aim point.
-    this._resolveHit(pos, result);
+    // The arrow flies; the impact (score, sound, particles) resolves on landing.
+    this.scene.spawnArrow(pos.x, pos.y, () => this._resolveHit(pos, result));
   }
 
   _resolveHit(pos, result) {
+    this.inFlight = Math.max(0, this.inFlight - 1);
     const eye = this.scene.getEye();
-    this.score += result.points;
     this.levelScore += result.points;
 
     if (result.points > 0) {
@@ -159,10 +163,10 @@ export class Game {
     else if (result.points > 0) this.ui.toastMsg(`${result.ring.label} +${result.points}${comboTag}`, result.ring.color);
     else this.ui.toastMsg("Missed — let go of the rest", "#ff7a7a");
 
-    this.ui.setHud({ score: this.score, combo: this.combo });
+    this.ui.setHud({ levelScore: this.levelScore, target: this.cfg.target, combo: this.combo });
 
-    // End the level once the last shot is taken.
-    if (this.arrowsUsed >= this.cfg.arrows && !this._ending) {
+    // End the level once every loosed arrow has landed.
+    if (this.arrowsUsed >= this.cfg.arrows && this.inFlight === 0 && !this._ending) {
       this._ending = true;
       this.input.setActive(false);
       setTimeout(() => this._endLevel(), 450);
@@ -174,38 +178,36 @@ export class Game {
     const stars = this.cfg.calibration ? -1 : starsFor(this.levelScore, this.cfg.target);
 
     if (passed) {
+      this.score += this.levelScore;       // commit the cleared level's points
       this.state = "levelcomplete";
       this.ui.setPlaying(false);
       this.audio.levelUp();
       this.ui.showLevelComplete({
         name: this.cfg.name,
-        score: this.levelScore,
+        total: this.score,
         stars,
         nextName: getLevel(this.levelIndex + 1).name,
         calibration: !!this.cfg.calibration,
       });
     } else {
-      this._gameOver();
+      this.state = "failed";
+      this.ui.setPlaying(false);
+      this.audio.gameOver();
+      this.ui.showFail({
+        name: this.cfg.name,
+        levelScore: this.levelScore,
+        target: this.cfg.target,
+      });
     }
+  }
+
+  retryLevel() {
+    this.startLevel(); // replay the same level with fresh arrows
   }
 
   nextLevel() {
     this.levelIndex += 1;
     this.startLevel();
-  }
-
-  _gameOver() {
-    this.state = "gameover";
-    this.input.setActive(false);
-    this.ui.setPlaying(false);
-    this.audio.gameOver();
-    this.ui.showGameOver({
-      score: this.score,
-      level: this.levelIndex + 1,
-      bestCombo: this.bestCombo,
-      daily: this.daily,
-      dailyKey: this.dailyKey,
-    });
   }
 
   // ---- pause / navigation ---------------------------------------------------
@@ -229,30 +231,6 @@ export class Game {
     this.input.setActive(false);
     this.ui.setPlaying(false);
     this.ui.show("title");
-  }
-
-  // ---- leaderboard ----------------------------------------------------------
-  async saveScore(name) {
-    const res = await this.leaderboard.submitScore(name, this.score);
-    this.lastSavedTs = res.entry.ts;
-    return res;
-  }
-
-  async showBoard() {
-    const entries = await this.leaderboard.getTopScores(10);
-    this.state = "board";
-    this.ui.renderBoard(entries, this.lastSavedTs);
-  }
-
-  // Snapshot for the shareable score card.
-  shareData() {
-    return {
-      score: this.score,
-      level: this.levelIndex + 1,
-      bestCombo: this.bestCombo,
-      daily: this.daily,
-      dailyKey: this.dailyKey,
-    };
   }
 }
 

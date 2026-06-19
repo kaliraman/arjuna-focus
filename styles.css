@@ -243,7 +243,10 @@ h2 {
   font-weight: 700;
   color: var(--ink);
 }
-#hud-arrows { color: var(--accent) !important; letter-spacing: 2px; }
+#hud-arrows { display: inline-flex; align-items: center; gap: 3px; }
+.ai { display: inline-block; vertical-align: middle; }
+.ai.on { color: var(--accent); }
+.ai.off { color: rgba(255, 255, 255, 0.2); }
 .icon-btn {
   margin-left: auto;
   pointer-events: auto;

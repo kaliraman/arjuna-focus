@@ -1,10 +1,12 @@
 // Scene: draws the reflecting pool, the rotating fish + its eye, ripple
-// distortion, drifting distractions, impact splashes, particles, screen shake,
-// and a subtle water-caustics shimmer. Purely procedural.
+// distortion, drifting distractions, and now the loosed arrow, impact particles,
+// screen shake, and a subtle water-caustics shimmer. Purely procedural.
 //
 // The fish orbits the pool's center, so its eye literally sweeps a circle —
 // the "motion" axis is this orbital speed. Ripple jitters the eye; Focus calms
 // it. At high levels the eye is veiled and only shows in brief clarity windows.
+
+import { easeInQuad } from "./util.js";
 
 export class Scene {
   constructor() {
@@ -23,6 +25,7 @@ export class Scene {
 
     this.distractions = [];
     this.impacts = [];       // expanding hit rings
+    this.arrows = [];        // arrows in flight
     this.particles = [];     // impact sparks
     this.ambientRings = [];
     this.shakeMag = 0;
@@ -40,6 +43,7 @@ export class Scene {
     this.theta = Math.PI * 0.25;
     this.distractions = [];
     this.impacts = [];
+    this.arrows = [];
     this.particles = [];
     this.shakeMag = 0;
     this.shakeT = 0;
@@ -91,6 +95,22 @@ export class Scene {
       (d) => d.life > 0 && d.x > -120 && d.x < this.w + 120 && d.y > -120 && d.y < this.h + 120
     );
 
+    // Arrows in flight
+    for (const a of this.arrows) {
+      a.age += dt;
+      const k = Math.min(1, a.age / a.dur);
+      const e = easeInQuad(k);
+      a.x = a.x0 + (a.tx - a.x0) * e;
+      a.y = a.y0 + (a.ty - a.y0) * e;
+      a.trail.push({ x: a.x, y: a.y });
+      if (a.trail.length > 9) a.trail.shift();
+      if (k >= 1 && !a.landed) {
+        a.landed = true;
+        a.onLand && a.onLand();
+      }
+    }
+    this.arrows = this.arrows.filter((a) => !a.landed);
+
     // Particles
     for (const p of this.particles) {
       p.age += dt;
@@ -140,6 +160,14 @@ export class Scene {
   }
 
   // ---- effects spawned by the game -----------------------------------------
+  // Launch an arrow from below the pool toward (tx,ty); fires onLand at impact.
+  spawnArrow(tx, ty, onLand) {
+    const x0 = this.cx + (this.rng() - 0.5) * 30;
+    const y0 = this.h + 50;
+    const dur = 0.26;
+    this.arrows.push({ x0, y0, x: x0, y: y0, tx, ty, age: 0, dur, landed: false, trail: [], onLand });
+  }
+
   addImpact(x, y, color) {
     this.impacts.push({ x, y, age: 0, dur: 0.6, color });
   }
@@ -185,6 +213,7 @@ export class Scene {
     this._drawAmbient(ctx);
     this._drawFish(ctx);
     this._drawDistractions(ctx);
+    this._drawArrows(ctx);
     this._drawImpacts(ctx);
     this._drawParticles(ctx);
     this._vignette(ctx);
@@ -353,6 +382,46 @@ export class Scene {
     ctx.arc(s * 0.35, 0, s * 0.38, 0, Math.PI * 2);
     ctx.arc(0, s * 0.1, s * 0.45, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  _drawArrows(ctx) {
+    ctx.save();
+    for (const a of this.arrows) {
+      // Trail
+      for (let i = 0; i < a.trail.length - 1; i++) {
+        const p = a.trail[i];
+        const q = a.trail[i + 1];
+        const alpha = (i / a.trail.length) * 0.5;
+        ctx.strokeStyle = `rgba(255, 230, 170, ${alpha})`;
+        ctx.lineWidth = 1 + (i / a.trail.length) * 2.5;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(q.x, q.y);
+        ctx.stroke();
+      }
+      // Arrowhead, oriented along velocity
+      const prev = a.trail[a.trail.length - 2] || { x: a.x0, y: a.y0 };
+      const ang = Math.atan2(a.y - prev.y, a.x - prev.x);
+      ctx.save();
+      ctx.translate(a.x, a.y);
+      ctx.rotate(ang);
+      ctx.fillStyle = "#ffe8a8";
+      ctx.beginPath();
+      ctx.moveTo(7, 0);
+      ctx.lineTo(-6, -3.5);
+      ctx.lineTo(-6, 3.5);
+      ctx.closePath();
+      ctx.fill();
+      // shaft
+      ctx.strokeStyle = "rgba(255, 220, 150, 0.9)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-6, 0);
+      ctx.lineTo(-20, 0);
+      ctx.stroke();
+      ctx.restore();
+    }
+    ctx.restore();
   }
 
   _drawImpacts(ctx) {

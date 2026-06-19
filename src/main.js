@@ -6,8 +6,6 @@ import { Input } from "./input.js";
 import { UI } from "./ui.js";
 import { Audio } from "./audio.js";
 import { Game } from "./game.js";
-import * as leaderboard from "./leaderboard.js";
-import { shareScore } from "./share.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -38,7 +36,7 @@ const input = new Input(canvas, {
   },
 });
 
-const game = new Game({ scene, ui, audio: Audio, input, leaderboard });
+const game = new Game({ scene, ui, audio: Audio, input });
 
 // ---- render loop ------------------------------------------------------------
 let last = performance.now();
@@ -98,10 +96,9 @@ on("btn-how", () => openInfo("how", "title"));
 on("btn-legend", () => openInfo("legend", "title"));
 on("btn-how-back", () => ui.show(infoReturn));
 on("btn-legend-back", () => ui.show(infoReturn));
-on("btn-board-title", () => game.showBoard());
 on("btn-next", () => game.nextLevel());
-on("btn-play-again", () => game.newGame());
-on("btn-board-home", () => game.toTitle());
+on("btn-retry", () => game.retryLevel());
+on("btn-fail-quit", () => game.toTitle());
 
 // In-game pause menu (corner button)
 on("menu-btn", () => game.openMenu());
@@ -110,25 +107,6 @@ on("btn-menu-how", () => openInfo("how", "menu"));
 on("btn-menu-legend", () => openInfo("legend", "menu"));
 on("btn-menu-quit", () => game.toTitle());
 on("btn-menu-sound", () => ui.setMuted(Audio.toggleMute()));
-
-on("btn-skip-save", () => game.showBoard());
-
-const doShare = async () => {
-  const status = await shareScore(game.shareData());
-  if (status) ui.toastMsg(status, "#76e0a0");
-};
-on("btn-share", doShare);
-on("btn-share-board", doShare);
-on("btn-save", async () => {
-  const val = document.getElementById("initials").value;
-  await game.saveScore(val);
-  await game.showBoard();
-});
-
-// Enter key in the initials field saves.
-document.getElementById("initials").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") document.getElementById("btn-save").click();
-});
 
 // Start on the title screen.
 ui.show("title");

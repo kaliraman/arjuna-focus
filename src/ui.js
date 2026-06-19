@@ -1,7 +1,16 @@
 // DOM glue: switching screens, HUD updates, toasts, focus meter, combo badge,
-// star ratings, and leaderboard. All element lookups live here.
+// star ratings. All element lookups live here.
 
 const $ = (id) => document.getElementById(id);
+
+// Small arrowhead icon (shaft + filled head) for the "arrows remaining" HUD.
+function arrowIcon(remaining) {
+  return (
+    `<svg class="ai ${remaining ? "on" : "off"}" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">` +
+    `<line x1="1" y1="8" x2="8.5" y2="8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>` +
+    `<path d="M8 3.5 L15 8 L8 12.5 Z" fill="currentColor"/></svg>`
+  );
+}
 
 export class UI {
   constructor() {
@@ -11,8 +20,7 @@ export class UI {
       legend: $("screen-legend"),
       menu: $("screen-menu"),
       level: $("screen-level"),
-      over: $("screen-over"),
-      board: $("screen-board"),
+      fail: $("screen-fail"),
     };
     this.hud = $("hud");
     this.focusWrap = $("focus-wrap");
@@ -27,12 +35,7 @@ export class UI {
       levelTitle: $("level-title"),
       levelStars: $("level-stars"),
       levelSummary: $("level-summary"),
-      overTitle: $("over-title"),
-      overScore: $("over-score"),
-      overSub: $("over-sub"),
-      initials: $("initials"),
-      boardList: $("board-list"),
-      boardEmpty: $("board-empty"),
+      failSub: $("fail-sub"),
     };
     this._toastTimer = null;
     this._lastCombo = 0;
@@ -51,12 +54,16 @@ export class UI {
     if (!on) { this.comboBadge.classList.add("hidden"); this._lastCombo = 0; }
   }
 
-  setHud({ level, score, arrows, arrowsUsed, combo }) {
+  setHud({ level, levelName, levelScore, target, arrows, arrowsUsed, combo }) {
     if (level != null) this.el.level.textContent = level;
-    if (score != null) this.el.score.textContent = score;
+    if (levelScore != null) {
+      this.el.score.textContent = target > 0 ? `${levelScore} / ${target}` : `${levelScore}`;
+    }
     if (arrows != null) {
-      const left = arrows - (arrowsUsed || 0);
-      this.el.arrows.textContent = "●".repeat(Math.max(0, left)) + "○".repeat(Math.max(0, arrowsUsed || 0));
+      const used = arrowsUsed || 0;
+      let html = "";
+      for (let i = 0; i < arrows; i++) html += arrowIcon(i >= used);
+      this.el.arrows.innerHTML = html;
     }
     if (combo != null) this._setCombo(combo);
   }
@@ -89,8 +96,8 @@ export class UI {
     this._toastTimer = setTimeout(() => t.classList.add("hidden"), 900);
   }
 
-  showLevelComplete({ name, score, stars, nextName, calibration }) {
-    this.el.levelTitle.textContent = calibration ? "Calibration complete" : `${name} — cleared`;
+  showLevelComplete({ total, stars, nextName, calibration }) {
+    this.el.levelTitle.textContent = calibration ? "Ready!" : "Cleared!";
     if (calibration || stars < 0) {
       this.el.levelStars.innerHTML = `<span class="on">◉</span>`;
     } else {
@@ -100,34 +107,13 @@ export class UI {
     }
     this.el.levelSummary.textContent = calibration
       ? `Now — see only the eye. Next: ${nextName}.`
-      : `Score ${score}. Next: ${nextName}.`;
+      : `Total ${total}. Next: ${nextName}.`;
     this.show("level");
   }
 
-  showGameOver({ score, level, bestCombo, daily, dailyKey }) {
-    this.el.overTitle.textContent = daily ? `Daily Challenge · ${dailyKey}` : (score > 0 ? "The run ends" : "No marks found");
-    this.el.overScore.textContent = score;
-    this.el.overSub.textContent = `Reached level ${level}  ·  best combo ×${bestCombo}`;
-    this.el.initials.value = "";
-    this.show("over");
-    setTimeout(() => this.el.initials.focus(), 50);
-  }
-
-  renderBoard(entries, youTs) {
-    const list = this.el.boardList;
-    list.innerHTML = "";
-    this.el.boardEmpty.classList.toggle("hidden", entries.length > 0);
-    entries.forEach((e, i) => {
-      const li = document.createElement("li");
-      if (i === 0) li.classList.add("top1");
-      if (youTs && e.ts === youTs) li.classList.add("you");
-      li.innerHTML =
-        `<span class="rank">${i + 1}</span>` +
-        `<span class="name">${e.name}</span>` +
-        `<span class="pts">${e.score.toLocaleString()}</span>`;
-      list.appendChild(li);
-    });
-    this.show("board");
+  showFail({ levelScore, target }) {
+    this.el.failSub.textContent = `You scored ${levelScore} — you needed ${target}.`;
+    this.show("fail");
   }
 
   setMuted(muted) { this.el.sound.textContent = muted ? "Sound: off" : "Sound: on"; }
