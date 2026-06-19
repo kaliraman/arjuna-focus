@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0b1f2a" />
-  <title>Arjuna's Focus</title>
+  <title>Eye of the Fish</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -15,8 +15,8 @@
     <div id="hud" class="hud hidden">
       <div class="hud-item"><span class="hud-label">Level</span><span id="hud-level">1</span></div>
       <div class="hud-item"><span class="hud-label">Score</span><span id="hud-score">0</span></div>
-      <div class="hud-item"><span class="hud-label">Arrows</span><span id="hud-arrows">●●●</span></div>
-      <button id="mute-btn" class="icon-btn" title="Mute" aria-label="Toggle sound">🔊</button>
+      <div class="hud-item"><span class="hud-label">Arrows</span><span id="hud-arrows" class="hud-arrows"></span></div>
+      <button id="menu-btn" class="icon-btn" title="Menu" aria-label="Open menu">☰</button>
     </div>
 
     <!-- Combo badge (appears on a streak) -->
@@ -34,19 +34,14 @@
     <!-- Title screen -->
     <section id="screen-title" class="screen">
       <div class="panel">
-        <h1 class="title">Arjuna's<span>Focus</span></h1>
-        <p class="story">
-          Drona hung a wooden fish high in a tree and bade each student strike its eye —
-          looking only at its <em>reflection</em> in the pool below. One by one they spoke
-          of the sky, the branches, the rippling water. Only Arjuna said:
-          <strong>“I see the eye of the fish, and nothing else.”</strong>
-        </p>
-        <p class="story-sub">Excess is the enemy of mastery. See only the eye.</p>
-        <button id="btn-start" class="btn btn-primary">Begin</button>
+        <h1 class="title">Eye of<span>the Fish</span></h1>
+        <p class="lede">Strike the fish's eye — and nothing else.</p>
+        <p class="how-mini">Move to aim · click or tap to shoot.</p>
+        <button id="btn-start" class="btn btn-primary">Play</button>
         <button id="btn-daily" class="btn btn-ghost">Daily Challenge</button>
         <div class="title-links">
           <button id="btn-how" class="btn-link">How to play</button>
-          <button id="btn-board-title" class="btn-link">Leaderboard</button>
+          <button id="btn-legend" class="btn-link">The legend</button>
         </div>
       </div>
     </section>
@@ -56,13 +51,42 @@
       <div class="panel">
         <h2>How to play</h2>
         <ul class="how-list">
-          <li><b>Aim</b> — move your pointer (or drag on touch) to guide the reticle over the pool.</li>
-          <li><b>Loose</b> — click or tap to fire at the fish's eye in the reflection.</li>
+          <li><b>Aim</b> — move your pointer (or drag on touch) to guide your aim over the pool.</li>
+          <li><b>Shoot</b> — click or tap to strike the fish's eye in the reflection.</li>
           <li><b>The pupil</b> is the bullseye. The closer to it — and the faster your shot — the more you score.</li>
           <li><b>Hold steady</b> to build <b>Focus</b>; a calm eye stills the ripples and clears the water.</li>
           <li>Levels grow harder: the fish spins faster and the pool fills with distraction until the eye shows for only an instant.</li>
         </ul>
         <button id="btn-how-back" class="btn btn-primary">Got it</button>
+      </div>
+    </section>
+
+    <!-- The legend -->
+    <section id="screen-legend" class="screen hidden">
+      <div class="panel">
+        <h2>The legend</h2>
+        <p class="story">
+          In the Mahabharata, the master Drona hung a wooden fish high in a tree and
+          bade each student strike its eye — looking only at its <em>reflection</em> in
+          the pool below. One by one they spoke of the sky, the branches, the rippling
+          water. Only Arjuna said: <strong>“I see the eye of the fish, and nothing else.”</strong>
+        </p>
+        <p class="story-sub">Excess is the enemy of mastery. See only the eye.</p>
+        <button id="btn-legend-back" class="btn btn-primary">Back</button>
+      </div>
+    </section>
+
+    <!-- Pause menu -->
+    <section id="screen-menu" class="screen hidden">
+      <div class="panel">
+        <h2>Paused</h2>
+        <button id="btn-resume" class="btn btn-primary">Resume</button>
+        <div class="menu-links">
+          <button id="btn-menu-how" class="btn-link">How to play</button>
+          <button id="btn-menu-legend" class="btn-link">The legend</button>
+          <button id="btn-menu-sound" class="btn-link">Sound: on</button>
+          <button id="btn-menu-quit" class="btn-link">Quit to title</button>
+        </div>
       </div>
     </section>
 
@@ -76,36 +100,13 @@
       </div>
     </section>
 
-    <!-- Game over / enter initials -->
-    <section id="screen-over" class="screen hidden">
+    <!-- Out of arrows (retry) -->
+    <section id="screen-fail" class="screen hidden">
       <div class="panel">
-        <h2 id="over-title">The run ends</h2>
-        <p class="story-sub">Final score</p>
-        <div id="over-score" class="big-score">0</div>
-        <p id="over-sub" class="over-sub"></p>
-        <div id="initials-wrap">
-          <label for="initials">Your mark</label>
-          <input id="initials" maxlength="3" autocomplete="off" placeholder="AAA" />
-          <button id="btn-save" class="btn btn-primary">Save score</button>
-        </div>
-        <div class="over-actions">
-          <button id="btn-share" class="btn btn-ghost">Share result</button>
-          <button id="btn-skip-save" class="btn-link">Skip</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Leaderboard -->
-    <section id="screen-board" class="screen hidden">
-      <div class="panel">
-        <h2>Leaderboard</h2>
-        <ol id="board-list" class="board-list"></ol>
-        <p id="board-empty" class="story-sub hidden">No marks yet. Be the first.</p>
-        <button id="btn-play-again" class="btn btn-primary">Play again</button>
-        <div class="over-actions">
-          <button id="btn-share-board" class="btn btn-ghost">Share result</button>
-          <button id="btn-board-home" class="btn-link">Home</button>
-        </div>
+        <h2>Out of arrows</h2>
+        <p id="fail-sub" class="over-sub"></p>
+        <button id="btn-retry" class="btn btn-primary">Try again</button>
+        <button id="btn-fail-quit" class="btn-link">Quit to title</button>
       </div>
     </section>
   </div>

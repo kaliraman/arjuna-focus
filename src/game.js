@@ -76,7 +76,8 @@ export class Game {
     this.ui.setHud({
       level: this.levelIndex + 1,
       levelName: cfg.name,
-      score: this.score,
+      levelScore: 0,
+      target: cfg.target,
       arrows: cfg.arrows,
       arrowsUsed: 0,
       combo: this.combo,
@@ -132,7 +133,6 @@ export class Game {
   _resolveHit(pos, result) {
     this.inFlight = Math.max(0, this.inFlight - 1);
     const eye = this.scene.getEye();
-    this.score += result.points;
     this.levelScore += result.points;
 
     if (result.points > 0) {
@@ -163,7 +163,7 @@ export class Game {
     else if (result.points > 0) this.ui.toastMsg(`${result.ring.label} +${result.points}${comboTag}`, result.ring.color);
     else this.ui.toastMsg("Missed — let go of the rest", "#ff7a7a");
 
-    this.ui.setHud({ score: this.score, combo: this.combo });
+    this.ui.setHud({ levelScore: this.levelScore, target: this.cfg.target, combo: this.combo });
 
     // End the level once every loosed arrow has landed.
     if (this.arrowsUsed >= this.cfg.arrows && this.inFlight === 0 && !this._ending) {
@@ -178,19 +178,31 @@ export class Game {
     const stars = this.cfg.calibration ? -1 : starsFor(this.levelScore, this.cfg.target);
 
     if (passed) {
+      this.score += this.levelScore;       // commit the cleared level's points
       this.state = "levelcomplete";
       this.ui.setPlaying(false);
       this.audio.levelUp();
       this.ui.showLevelComplete({
         name: this.cfg.name,
-        score: this.levelScore,
+        total: this.score,
         stars,
         nextName: getLevel(this.levelIndex + 1).name,
         calibration: !!this.cfg.calibration,
       });
     } else {
-      this._gameOver();
+      this.state = "failed";
+      this.ui.setPlaying(false);
+      this.audio.gameOver();
+      this.ui.showFail({
+        name: this.cfg.name,
+        levelScore: this.levelScore,
+        target: this.cfg.target,
+      });
     }
+  }
+
+  retryLevel() {
+    this.startLevel(); // replay the same level with fresh arrows
   }
 
   nextLevel() {
@@ -198,42 +210,27 @@ export class Game {
     this.startLevel();
   }
 
-  _gameOver() {
-    this.state = "gameover";
+  // ---- pause / navigation ---------------------------------------------------
+  openMenu() {
+    if (this.state !== "playing") return;
+    this.state = "paused";
+    this.input.setActive(false);
+    this.ui.show("menu");
+  }
+
+  resume() {
+    if (this.state !== "paused") return;
+    this.ui.hideScreens();
+    this.ui.setPlaying(true);
+    this.input.setActive(true);
+    this.state = "playing";
+  }
+
+  toTitle() {
+    this.state = "title";
     this.input.setActive(false);
     this.ui.setPlaying(false);
-    this.audio.gameOver();
-    this.ui.showGameOver({
-      score: this.score,
-      level: this.levelIndex + 1,
-      bestCombo: this.bestCombo,
-      daily: this.daily,
-      dailyKey: this.dailyKey,
-    });
-  }
-
-  // ---- leaderboard ----------------------------------------------------------
-  async saveScore(name) {
-    const res = await this.leaderboard.submitScore(name, this.score);
-    this.lastSavedTs = res.entry.ts;
-    return res;
-  }
-
-  async showBoard() {
-    const entries = await this.leaderboard.getTopScores(10);
-    this.state = "board";
-    this.ui.renderBoard(entries, this.lastSavedTs);
-  }
-
-  // Snapshot for the shareable score card.
-  shareData() {
-    return {
-      score: this.score,
-      level: this.levelIndex + 1,
-      bestCombo: this.bestCombo,
-      daily: this.daily,
-      dailyKey: this.dailyKey,
-    };
+    this.ui.show("title");
   }
 }
 

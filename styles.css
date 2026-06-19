@@ -243,7 +243,10 @@ h2 {
   font-weight: 700;
   color: var(--ink);
 }
-#hud-arrows { color: var(--accent) !important; letter-spacing: 2px; }
+#hud-arrows { display: inline-flex; align-items: center; gap: 3px; }
+.ai { display: inline-block; vertical-align: middle; }
+.ai.on { color: var(--accent); }
+.ai.off { color: rgba(255, 255, 255, 0.2); }
 .icon-btn {
   margin-left: auto;
   pointer-events: auto;
@@ -374,4 +377,25 @@ h2 {
   .panel { padding: 18px 22px; }
   .story { margin-bottom: 10px; }
   .story-sub { margin-bottom: 14px; }
+}
+
+/* Title: instant instruction (lead with the action) */
+.lede {
+  font-size: clamp(16px, 4.6vw, 21px);
+  color: var(--ink);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.how-mini {
+  font-size: clamp(13px, 3.4vw, 15px);
+  color: var(--ink-dim);
+  margin-bottom: 22px;
+}
+
+/* Pause menu */
+.menu-links {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 14px;
 }
