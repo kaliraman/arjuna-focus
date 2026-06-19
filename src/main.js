@@ -7,6 +7,7 @@ import { UI } from "./ui.js";
 import { Audio } from "./audio.js";
 import { Game } from "./game.js";
 import * as leaderboard from "./leaderboard.js";
+import { shareScore } from "./share.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -87,6 +88,7 @@ const on = (id, fn) =>
   });
 
 on("btn-start", () => game.newGame());
+on("btn-daily", () => game.startDaily());
 on("btn-how", () => ui.show("how"));
 on("btn-how-back", () => ui.show("title"));
 on("btn-board-title", () => game.showBoard());
@@ -95,6 +97,13 @@ on("btn-play-again", () => game.newGame());
 on("btn-board-home", () => { game.state = "title"; ui.show("title"); });
 
 on("btn-skip-save", () => game.showBoard());
+
+const doShare = async () => {
+  const status = await shareScore(game.shareData());
+  if (status) ui.toastMsg(status, "#76e0a0");
+};
+on("btn-share", doShare);
+on("btn-share-board", doShare);
 on("btn-save", async () => {
   const val = document.getElementById("initials").value;
   await game.saveScore(val);

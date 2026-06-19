@@ -19,6 +19,9 @@
       <button id="mute-btn" class="icon-btn" title="Mute" aria-label="Toggle sound">🔊</button>
     </div>
 
+    <!-- Combo badge (appears on a streak) -->
+    <div id="combo-badge" class="combo-badge hidden">×2</div>
+
     <!-- Focus meter -->
     <div id="focus-wrap" class="focus-wrap hidden">
       <div class="focus-label">Focus</div>
@@ -40,6 +43,7 @@
         </p>
         <p class="story-sub">Excess is the enemy of mastery. See only the eye.</p>
         <button id="btn-start" class="btn btn-primary">Begin</button>
+        <button id="btn-daily" class="btn btn-ghost">Daily Challenge</button>
         <div class="title-links">
           <button id="btn-how" class="btn-link">How to play</button>
           <button id="btn-board-title" class="btn-link">Leaderboard</button>
@@ -66,6 +70,7 @@
     <section id="screen-level" class="screen hidden">
       <div class="panel">
         <h2 id="level-title">Level Cleared</h2>
+        <div id="level-stars" class="stars"></div>
         <p id="level-summary" class="story-sub"></p>
         <button id="btn-next" class="btn btn-primary">Next level</button>
       </div>
@@ -77,12 +82,16 @@
         <h2 id="over-title">The run ends</h2>
         <p class="story-sub">Final score</p>
         <div id="over-score" class="big-score">0</div>
+        <p id="over-sub" class="over-sub"></p>
         <div id="initials-wrap">
           <label for="initials">Your mark</label>
           <input id="initials" maxlength="3" autocomplete="off" placeholder="AAA" />
           <button id="btn-save" class="btn btn-primary">Save score</button>
         </div>
-        <button id="btn-skip-save" class="btn-link">Skip</button>
+        <div class="over-actions">
+          <button id="btn-share" class="btn btn-ghost">Share result</button>
+          <button id="btn-skip-save" class="btn-link">Skip</button>
+        </div>
       </div>
     </section>
 
@@ -93,7 +102,10 @@
         <ol id="board-list" class="board-list"></ol>
         <p id="board-empty" class="story-sub hidden">No marks yet. Be the first.</p>
         <button id="btn-play-again" class="btn btn-primary">Play again</button>
-        <button id="btn-board-home" class="btn-link">Home</button>
+        <div class="over-actions">
+          <button id="btn-share-board" class="btn btn-ghost">Share result</button>
+          <button id="btn-board-home" class="btn-link">Home</button>
+        </div>
       </div>
     </section>
   </div>

@@ -10,6 +10,7 @@
 // first a steady aim-and-timing shot, escalating into a reflex one-tap.
 
 export const LEVELS = [
+  { name: "Calibration",      motion: 0.20, distraction: 0.00, ripple: 0.3, clarityFlash: false, arrows: 3, target: 0, calibration: true },
   { name: "The Still Pool",   motion: 0.35, distraction: 0.00, ripple: 0.5, clarityFlash: false, arrows: 5, target: 200 },
   { name: "First Current",    motion: 0.55, distraction: 0.12, ripple: 0.8, clarityFlash: false, arrows: 5, target: 450 },
   { name: "Drifting Leaves",  motion: 0.80, distraction: 0.28, ripple: 1.0, clarityFlash: false, arrows: 5, target: 750 },

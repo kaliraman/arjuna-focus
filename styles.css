@@ -144,6 +144,14 @@ h2 {
 }
 .btn-primary:hover { box-shadow: 0 10px 30px rgba(244,138,90,0.5); }
 
+.btn-ghost {
+  background: rgba(255, 207, 107, 0.08);
+  color: var(--accent);
+  border: 1px solid var(--panel-edge);
+  margin-top: 12px;
+}
+.btn-ghost:hover { background: rgba(255, 207, 107, 0.16); }
+
 .btn-link {
   background: none;
   border: none;
@@ -156,6 +164,53 @@ h2 {
   padding: 8px 10px;
 }
 .btn-link:hover { color: var(--accent); }
+
+.over-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+}
+.over-actions .btn-ghost { margin-top: 0; }
+
+/* Star rating on level-complete */
+.stars {
+  font-size: 38px;
+  letter-spacing: 8px;
+  margin-bottom: 14px;
+  min-height: 8px;
+}
+.stars .on { color: var(--accent); text-shadow: 0 2px 14px rgba(255,207,107,0.4); }
+.stars .off { color: rgba(255,255,255,0.14); }
+
+.over-sub {
+  font-size: 15px;
+  color: var(--ink-dim);
+  margin-top: -10px;
+  margin-bottom: 20px;
+}
+
+/* Combo badge */
+.combo-badge {
+  position: absolute;
+  top: 11%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 22;
+  font-size: clamp(20px, 6vw, 30px);
+  font-weight: 800;
+  color: var(--good);
+  text-shadow: 0 2px 14px rgba(118,224,160,0.5);
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.combo-badge.bump { animation: combo-bump 0.3s ease; }
+@keyframes combo-bump {
+  0% { transform: translateX(-50%) scale(1); }
+  40% { transform: translateX(-50%) scale(1.4); }
+  100% { transform: translateX(-50%) scale(1); }
+}
 
 .title-links {
   margin-top: 18px;
@@ -238,7 +293,7 @@ h2 {
   top: 18%;
   left: 50%;
   transform: translate(-50%, -8px);
-  z-index: 25;
+  z-index: 40;
   font-size: clamp(26px, 8vw, 44px);
   font-weight: 800;
   letter-spacing: 1px;
