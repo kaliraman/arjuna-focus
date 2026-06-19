@@ -24,8 +24,6 @@ export class UI {
       finale: $("screen-finale"),
     };
     this.hud = $("hud");
-    this.focusWrap = $("focus-wrap");
-    this.focusFill = $("focus-fill");
     this.goalWrap = $("goal-wrap");
     this.levelIntro = $("level-intro");
     this.toast = $("toast");
@@ -59,7 +57,6 @@ export class UI {
 
   setPlaying(on) {
     this.hud.classList.toggle("hidden", !on);
-    this.focusWrap.classList.toggle("hidden", !on);
     if (!on) {
       this.goalWrap.classList.add("hidden");
       this.comboBadge.classList.add("hidden");
@@ -104,8 +101,6 @@ export class UI {
     }
     this._lastCombo = combo;
   }
-
-  setFocus(v) { this.focusFill.style.width = `${Math.round(v * 100)}%`; }
 
   toastMsg(text, color) {
     const t = this.toast;

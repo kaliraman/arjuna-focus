@@ -55,8 +55,7 @@ function frame(now) {
 function drawReticle(c) {
   if (!input.has) return;
   const { x, y } = input;
-  const steady = input.speed < 70;
-  const col = steady ? "rgba(118, 224, 160, 0.95)" : "rgba(234, 242, 244, 0.85)";
+  const col = "rgba(234, 242, 244, 0.9)";
   c.save();
   c.strokeStyle = col;
   c.lineWidth = 2;

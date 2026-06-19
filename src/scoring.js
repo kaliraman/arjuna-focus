@@ -1,8 +1,5 @@
-// Scoring: distance from the pupil at the moment of release maps to a ring.
-// Points scale with ring, level, reaction speed, Focus, and the current combo —
-// rewarding the decisive, focused, unbroken shooting the story is about.
-
-import { clamp01 } from "./util.js";
+// Scoring: distance from the pupil at the moment of IMPACT maps to a ring.
+// Points scale with the ring, the level, and the current combo streak.
 
 // Ring radii are expressed as a fraction of the fish's overall radius.
 // "perfect" is a tight sweet-spot inside the pupil for expert shots.
@@ -22,26 +19,18 @@ export function classify(dist, fishRadius) {
   return RINGS[RINGS.length - 1];
 }
 
-// dist: pixel distance from pupil. fishRadius: pixel radius of the fish.
-// reactionMs: time from arrow-ready to the shot. focus: 0..1. level: 0-based.
-// combo: number of consecutive scoring hits BEFORE this shot (0 on first).
-export function scoreShot({ dist, fishRadius, reactionMs, focus, level, combo = 0 }) {
+// dist: pixel distance from pupil at impact. fishRadius: pixel radius of the
+// fish. level: 0-based level index. combo: consecutive hits BEFORE this shot.
+export function scoreShot({ dist, fishRadius, level, combo = 0 }) {
   const ring = classify(dist, fishRadius);
   if (ring.base === 0) return { ring, points: 0, comboMult: 1 };
 
   const levelMult = 1 + level * 0.25;
-
-  // Reaction bonus: full under 350ms, fading to 0 by 2500ms.
-  const react = clamp01(1 - (reactionMs - 350) / 2150);
-  const reactionBonus = 1 + react * 0.6;
-
-  const focusBonus = 1 + focus * 0.4;
-
   // Combo multiplier: grows with the current unbroken hit streak, capped.
   const comboMult = 1 + Math.min(combo, 10) * 0.12;
 
-  const points = Math.round(ring.base * levelMult * reactionBonus * focusBonus * comboMult);
-  return { ring, points, react, comboMult };
+  const points = Math.round(ring.base * levelMult * comboMult);
+  return { ring, points, comboMult };
 }
 
 // Star rating for a cleared level: how far past the target you scored.
