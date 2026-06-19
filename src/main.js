@@ -98,6 +98,9 @@ on("btn-legend-back", () => ui.show(infoReturn));
 on("btn-next", () => game.nextLevel());
 on("btn-retry", () => game.retryLevel());
 on("btn-fail-quit", () => game.toTitle());
+on("btn-finale-again", () => game.newGame());
+on("btn-finale-endless", () => game.keepGoing());
+on("btn-finale-home", () => game.toTitle());
 
 // In-game pause menu (corner button)
 on("menu-btn", () => game.openMenu());

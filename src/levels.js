@@ -38,3 +38,5 @@ export function getLevel(i) {
 }
 
 export const LEVEL_COUNT = LEVELS.length;
+// Numbered challenge levels (everything after the unnumbered Calibration warm-up).
+export const CHALLENGE_COUNT = LEVELS.length - 1;

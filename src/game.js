@@ -2,7 +2,7 @@
 // meter, and the rules for advancing or ending a run. Coordinates Scene, UI,
 // Audio, and the Leaderboard. main.js drives the render loop and forwards input.
 
-import { getLevel, LEVEL_COUNT } from "./levels.js";
+import { getLevel, LEVEL_COUNT, CHALLENGE_COUNT } from "./levels.js";
 import { scoreShot, starsFor } from "./scoring.js";
 
 const STEADY_SPEED = 70;
@@ -59,9 +59,9 @@ export class Game {
     this.state = "playing";
     this.ui.hideScreens();
     this.ui.setPlaying(true);
+    const label = this._levelLabel();
     this.ui.setHud({
-      level: this.levelIndex + 1,
-      levelName: cfg.name,
+      levelLabel: label,
       levelScore: 0,
       target: cfg.target,
       arrows: cfg.arrows,
@@ -69,11 +69,15 @@ export class Game {
       combo: this.combo,
     });
     this.ui.setFocus(0);
+    this.ui.showLevelIntro({ label, name: cfg.name, calibration: !!cfg.calibration });
     this.input.setActive(true);
+  }
 
-    if (cfg.calibration) {
-      this.ui.toastMsg("Find the eye — and nothing else", "#9fb6bd");
-    }
+  // "Warm-up" for the calibration level, "3 / 8" for numbered levels, "Endless" beyond.
+  _levelLabel() {
+    if (this.cfg.calibration) return "Warm-up";
+    if (this.levelIndex <= CHALLENGE_COUNT) return `${this.levelIndex} / ${CHALLENGE_COUNT}`;
+    return "Endless";
   }
 
   // ---- per-frame ------------------------------------------------------------
@@ -165,16 +169,19 @@ export class Game {
 
     if (passed) {
       this.score += this.levelScore;       // commit the cleared level's points
-      this.state = "levelcomplete";
       this.ui.setPlaying(false);
       this.audio.levelUp();
-      this.ui.showLevelComplete({
-        name: this.cfg.name,
-        total: this.score,
-        stars,
-        nextName: getLevel(this.levelIndex + 1).name,
-        calibration: !!this.cfg.calibration,
-      });
+      if (!this.cfg.calibration && this.levelIndex === CHALLENGE_COUNT) {
+        this.state = "finale";
+        this.ui.showFinale({ total: this.score, stars });
+      } else {
+        this.state = "levelcomplete";
+        this.ui.showLevelComplete({
+          total: this.score,
+          stars,
+          calibration: !!this.cfg.calibration,
+        });
+      }
     } else {
       this.state = "failed";
       this.ui.setPlaying(false);
@@ -194,6 +201,10 @@ export class Game {
   nextLevel() {
     this.levelIndex += 1;
     this.startLevel();
+  }
+
+  keepGoing() {
+    this.nextLevel(); // continue past the finale into endless levels
   }
 
   // ---- pause / navigation ---------------------------------------------------
