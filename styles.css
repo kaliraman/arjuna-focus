@@ -399,3 +399,81 @@ h2 {
   gap: 2px;
   margin-top: 14px;
 }
+
+/* Goal bar (top) — fills toward the star thresholds */
+.goal-wrap {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 58px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(300px, 74vw);
+  z-index: 20;
+  text-align: center;
+  pointer-events: none;
+}
+.goal-label {
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 6px;
+}
+.goal-wrap.cleared .goal-label { color: var(--good); }
+.goal-track {
+  position: relative;
+  height: 7px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.1);
+}
+.goal-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 5px;
+  background: linear-gradient(90deg, var(--good), var(--accent));
+  transition: width 0.18s linear;
+}
+.goal-notch {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 13px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.28);
+}
+.goal-notch.lit { background: var(--accent); box-shadow: 0 0 6px rgba(255, 207, 107, 0.6); }
+.goal-notch.n1 { left: 52.6%; }
+.goal-notch.n2 { left: 73.7%; }
+.goal-notch.n3 { left: 100%; }
+
+/* Level intro card */
+.level-intro {
+  position: absolute;
+  top: 32%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  z-index: 24;
+  pointer-events: none;
+  opacity: 0;
+}
+.level-intro.show { animation: levelintro 1.9s ease forwards; }
+.level-intro-label {
+  font-size: clamp(12px, 3.4vw, 14px);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+.level-intro-name {
+  font-size: clamp(26px, 8vw, 44px);
+  font-weight: 800;
+  color: var(--ink);
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.55);
+}
+@keyframes levelintro {
+  0% { opacity: 0; transform: translateY(10px) scale(0.98); }
+  18% { opacity: 1; transform: translateY(0) scale(1); }
+  72% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-6px); }
+}

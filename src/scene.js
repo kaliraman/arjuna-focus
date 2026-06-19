@@ -20,7 +20,6 @@ export class Scene {
     this.orbitR = 90;
 
     this.cfg = { motion: 0.4, ripple: 0.5, distraction: 0, clarityFlash: false };
-    this.focus = 0;
     this.rng = Math.random;  // distraction randomness (injectable)
 
     this.distractions = [];
@@ -70,8 +69,7 @@ export class Scene {
     this.t += dt;
     this.theta += this.cfg.motion * dt;
 
-    const calm = 1 - this.focus * 0.85;
-    const amp = this.cfg.ripple * 7 * calm;
+    const amp = this.cfg.ripple * 7;
     const rx = Math.sin(this.t * 3.1 + this.theta * 2) * amp;
     const ry = Math.cos(this.t * 2.3 + this.theta * 1.5) * amp;
     const head = this.theta + Math.PI / 2;
@@ -164,7 +162,7 @@ export class Scene {
   spawnArrow(tx, ty, onLand) {
     const x0 = this.cx + (this.rng() - 0.5) * 30;
     const y0 = this.h + 50;
-    const dur = 0.26;
+    const dur = 0.34; // flight time — sets how far you must lead the moving eye
     this.arrows.push({ x0, y0, x: x0, y: y0, tx, ty, age: 0, dur, landed: false, trail: [], onLand });
   }
 

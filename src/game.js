@@ -2,12 +2,8 @@
 // meter, and the rules for advancing or ending a run. Coordinates Scene, UI,
 // Audio, and the Leaderboard. main.js drives the render loop and forwards input.
 
-import { getLevel, LEVEL_COUNT } from "./levels.js";
+import { getLevel, LEVEL_COUNT, CHALLENGE_COUNT } from "./levels.js";
 import { scoreShot, starsFor } from "./scoring.js";
-
-const STEADY_SPEED = 70;
-const FOCUS_UP = 0.55;
-const FOCUS_DOWN = 1.1;
 
 export class Game {
   constructor({ scene, ui, audio, input, leaderboard }) {
@@ -22,10 +18,8 @@ export class Game {
     this.levelIndex = 0;
     this.levelScore = 0;
     this.arrowsUsed = 0;
-    this.focus = 0;
     this.combo = 0;          // consecutive scoring hits (across the whole run)
     this.bestCombo = 0;
-    this.arrowReadyAt = 0;
     this.inFlight = 0;       // arrows currently in the air
     this._ending = false;
   }
@@ -50,75 +44,62 @@ export class Game {
     this.scene.resetLevel();
     this.levelScore = 0;
     this.arrowsUsed = 0;
-    this.focus = 0;
-    this.scene.focus = 0;
-    this.arrowReadyAt = performance.now();
     this.inFlight = 0;
     this._ending = false;
 
     this.state = "playing";
     this.ui.hideScreens();
     this.ui.setPlaying(true);
+    const label = this._levelLabel();
     this.ui.setHud({
-      level: this.levelIndex + 1,
-      levelName: cfg.name,
+      levelLabel: label,
       levelScore: 0,
       target: cfg.target,
       arrows: cfg.arrows,
       arrowsUsed: 0,
       combo: this.combo,
     });
-    this.ui.setFocus(0);
+    this.ui.showLevelIntro({ label, name: cfg.name, calibration: !!cfg.calibration });
     this.input.setActive(true);
+  }
 
-    if (cfg.calibration) {
-      this.ui.toastMsg("Find the eye — and nothing else", "#9fb6bd");
-    }
+  // "Warm-up" for the calibration level, "3 / 8" for numbered levels, "Endless" beyond.
+  _levelLabel() {
+    if (this.cfg.calibration) return "Warm-up";
+    if (this.levelIndex <= CHALLENGE_COUNT) return `${this.levelIndex} / ${CHALLENGE_COUNT}`;
+    return "Endless";
   }
 
   // ---- per-frame ------------------------------------------------------------
   update(dt) {
     if (this.state !== "playing") return;
-    const steady = this.input.has && this.input.speed < STEADY_SPEED;
-    this.focus += (steady ? FOCUS_UP : -FOCUS_DOWN) * dt;
-    this.focus = Math.max(0, Math.min(1, this.focus));
-    this.scene.focus = this.focus;
-    this.ui.setFocus(this.focus);
     this.scene.update(dt);
   }
 
   // ---- firing ---------------------------------------------------------------
   fire(pos) {
     if (this.state !== "playing") return;
-    if (this.arrowsUsed >= this.cfg.arrows) return; // no arrows left mid-flight
-
-    const eye = this.scene.getEye();
-    const dist = Math.hypot(pos.x - eye.x, pos.y - eye.y);
-    const reactionMs = performance.now() - this.arrowReadyAt;
-
-    // Score is locked in at the instant of release (eye position now).
-    const result = scoreShot({
-      dist,
-      fishRadius: this.scene.getFishRadius(),
-      reactionMs,
-      focus: this.focus,
-      level: this.levelIndex,
-      combo: this.combo,
-    });
+    if (this.arrowsUsed >= this.cfg.arrows) return; // out of shots
 
     this.arrowsUsed += 1;
     this.inFlight += 1;
-    this.focus *= 0.45;
-    this.arrowReadyAt = performance.now();
     this.ui.setHud({ arrows: this.cfg.arrows, arrowsUsed: this.arrowsUsed });
 
-    // The arrow flies; the impact (score, sound, particles) resolves on landing.
-    this.scene.spawnArrow(pos.x, pos.y, () => this._resolveHit(pos, result));
+    // The arrow flies to the chosen point; the shot is judged where it LANDS,
+    // against where the eye is at that moment — so you must lead the target.
+    this.scene.spawnArrow(pos.x, pos.y, () => this._resolveHit(pos));
   }
 
-  _resolveHit(pos, result) {
+  _resolveHit(pos) {
     this.inFlight = Math.max(0, this.inFlight - 1);
     const eye = this.scene.getEye();
+    const dist = Math.hypot(pos.x - eye.x, pos.y - eye.y);
+    const result = scoreShot({
+      dist,
+      fishRadius: this.scene.getFishRadius(),
+      level: this.levelIndex,
+      combo: this.combo,
+    });
     this.levelScore += result.points;
 
     if (result.points > 0) {
@@ -147,7 +128,7 @@ export class Game {
     const comboTag = this.combo > 1 && result.points > 0 ? `  ×${this.combo}` : "";
     if (result.ring.bull) this.ui.toastMsg(`${result.ring.label} +${result.points}${comboTag}`, result.ring.color);
     else if (result.points > 0) this.ui.toastMsg(`${result.ring.label} +${result.points}${comboTag}`, result.ring.color);
-    else this.ui.toastMsg("Missed — let go of the rest", "#ff7a7a");
+    else this.ui.toastMsg("Missed — lead the eye", "#ff7a7a");
 
     this.ui.setHud({ levelScore: this.levelScore, target: this.cfg.target, combo: this.combo });
 
@@ -165,16 +146,19 @@ export class Game {
 
     if (passed) {
       this.score += this.levelScore;       // commit the cleared level's points
-      this.state = "levelcomplete";
       this.ui.setPlaying(false);
       this.audio.levelUp();
-      this.ui.showLevelComplete({
-        name: this.cfg.name,
-        total: this.score,
-        stars,
-        nextName: getLevel(this.levelIndex + 1).name,
-        calibration: !!this.cfg.calibration,
-      });
+      if (!this.cfg.calibration && this.levelIndex === CHALLENGE_COUNT) {
+        this.state = "finale";
+        this.ui.showFinale({ total: this.score, stars });
+      } else {
+        this.state = "levelcomplete";
+        this.ui.showLevelComplete({
+          total: this.score,
+          stars,
+          calibration: !!this.cfg.calibration,
+        });
+      }
     } else {
       this.state = "failed";
       this.ui.setPlaying(false);
@@ -194,6 +178,10 @@ export class Game {
   nextLevel() {
     this.levelIndex += 1;
     this.startLevel();
+  }
+
+  keepGoing() {
+    this.nextLevel(); // continue past the finale into endless levels
   }
 
   // ---- pause / navigation ---------------------------------------------------
