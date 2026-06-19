@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Dependencies (none today, but future-proofing)
+node_modules/
+
+# Vercel
+.vercel
+
+# Editor cruft
+.idea/
+.vscode/
+*.swp
