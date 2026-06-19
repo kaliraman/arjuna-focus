@@ -27,7 +27,6 @@ export class Game {
     this.combo = 0;          // consecutive scoring hits (across the whole run)
     this.bestCombo = 0;
     this.arrowReadyAt = 0;
-    this.inFlight = 0;       // arrows currently in the air
     this.daily = false;
     this.dailyKey = null;
     this.lastSavedTs = null;
@@ -67,7 +66,6 @@ export class Game {
     this.focus = 0;
     this.scene.focus = 0;
     this.arrowReadyAt = performance.now();
-    this.inFlight = 0;
     this._ending = false;
 
     this.state = "playing";
@@ -103,7 +101,7 @@ export class Game {
   // ---- firing ---------------------------------------------------------------
   fire(pos) {
     if (this.state !== "playing") return;
-    if (this.arrowsUsed >= this.cfg.arrows) return; // no arrows left mid-flight
+    if (this.arrowsUsed >= this.cfg.arrows) return; // out of shots
 
     const eye = this.scene.getEye();
     const dist = Math.hypot(pos.x - eye.x, pos.y - eye.y);
@@ -120,17 +118,15 @@ export class Game {
     });
 
     this.arrowsUsed += 1;
-    this.inFlight += 1;
     this.focus *= 0.45;
     this.arrowReadyAt = performance.now();
     this.ui.setHud({ arrows: this.cfg.arrows, arrowsUsed: this.arrowsUsed });
 
-    // The arrow flies; the impact (score, sound, particles) resolves on landing.
-    this.scene.spawnArrow(pos.x, pos.y, () => this._resolveHit(pos, result));
+    // No projectile — the shot lands instantly at the aim point.
+    this._resolveHit(pos, result);
   }
 
   _resolveHit(pos, result) {
-    this.inFlight = Math.max(0, this.inFlight - 1);
     const eye = this.scene.getEye();
     this.score += result.points;
     this.levelScore += result.points;
@@ -165,8 +161,8 @@ export class Game {
 
     this.ui.setHud({ score: this.score, combo: this.combo });
 
-    // End the level once every loosed arrow has landed.
-    if (this.arrowsUsed >= this.cfg.arrows && this.inFlight === 0 && !this._ending) {
+    // End the level once the last shot is taken.
+    if (this.arrowsUsed >= this.cfg.arrows && !this._ending) {
       this._ending = true;
       this.input.setActive(false);
       setTimeout(() => this._endLevel(), 450);
@@ -210,6 +206,29 @@ export class Game {
       daily: this.daily,
       dailyKey: this.dailyKey,
     });
+  }
+
+  // ---- pause / navigation ---------------------------------------------------
+  openMenu() {
+    if (this.state !== "playing") return;
+    this.state = "paused";
+    this.input.setActive(false);
+    this.ui.show("menu");
+  }
+
+  resume() {
+    if (this.state !== "paused") return;
+    this.ui.hideScreens();
+    this.ui.setPlaying(true);
+    this.input.setActive(true);
+    this.state = "playing";
+  }
+
+  toTitle() {
+    this.state = "title";
+    this.input.setActive(false);
+    this.ui.setPlaying(false);
+    this.ui.show("title");
   }
 
   // ---- leaderboard ----------------------------------------------------------

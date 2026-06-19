@@ -8,6 +8,8 @@ export class UI {
     this.screens = {
       title: $("screen-title"),
       how: $("screen-how"),
+      legend: $("screen-legend"),
+      menu: $("screen-menu"),
       level: $("screen-level"),
       over: $("screen-over"),
       board: $("screen-board"),
@@ -21,7 +23,7 @@ export class UI {
       level: $("hud-level"),
       score: $("hud-score"),
       arrows: $("hud-arrows"),
-      mute: $("mute-btn"),
+      sound: $("btn-menu-sound"),
       levelTitle: $("level-title"),
       levelStars: $("level-stars"),
       levelSummary: $("level-summary"),
@@ -128,5 +130,5 @@ export class UI {
     this.show("board");
   }
 
-  setMuted(muted) { this.el.mute.textContent = muted ? "🔇" : "🔊"; }
+  setMuted(muted) { this.el.sound.textContent = muted ? "Sound: off" : "Sound: on"; }
 }

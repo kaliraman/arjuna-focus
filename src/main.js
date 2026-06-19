@@ -87,14 +87,29 @@ const on = (id, fn) =>
     fn();
   });
 
+// How-to-play and The legend are reachable from both the title and the pause
+// menu; remember where to return to on Back.
+let infoReturn = "title";
+const openInfo = (name, ret) => { infoReturn = ret; ui.show(name); };
+
 on("btn-start", () => game.newGame());
 on("btn-daily", () => game.startDaily());
-on("btn-how", () => ui.show("how"));
-on("btn-how-back", () => ui.show("title"));
+on("btn-how", () => openInfo("how", "title"));
+on("btn-legend", () => openInfo("legend", "title"));
+on("btn-how-back", () => ui.show(infoReturn));
+on("btn-legend-back", () => ui.show(infoReturn));
 on("btn-board-title", () => game.showBoard());
 on("btn-next", () => game.nextLevel());
 on("btn-play-again", () => game.newGame());
-on("btn-board-home", () => { game.state = "title"; ui.show("title"); });
+on("btn-board-home", () => game.toTitle());
+
+// In-game pause menu (corner button)
+on("menu-btn", () => game.openMenu());
+on("btn-resume", () => game.resume());
+on("btn-menu-how", () => openInfo("how", "menu"));
+on("btn-menu-legend", () => openInfo("legend", "menu"));
+on("btn-menu-quit", () => game.toTitle());
+on("btn-menu-sound", () => ui.setMuted(Audio.toggleMute()));
 
 on("btn-skip-save", () => game.showBoard());
 
@@ -113,11 +128,6 @@ on("btn-save", async () => {
 // Enter key in the initials field saves.
 document.getElementById("initials").addEventListener("keydown", (e) => {
   if (e.key === "Enter") document.getElementById("btn-save").click();
-});
-
-document.getElementById("mute-btn").addEventListener("click", () => {
-  const muted = Audio.toggleMute();
-  ui.setMuted(muted);
 });
 
 // Start on the title screen.
