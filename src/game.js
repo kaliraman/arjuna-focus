@@ -1,39 +1,31 @@
-// Game controller: owns run state (score, level, arrows, combo), the Focus
-// meter, and the rules for advancing or ending a run. Coordinates Scene, UI,
-// Audio, and the Leaderboard. main.js drives the render loop and forwards input.
+// Game controller: owns run state (one cumulative score, the level, the
+// eye-strike objective) and the rules for advancing. Coordinates Scene, UI,
+// and Audio. main.js drives the render loop and forwards input.
+//
+// Model: arrows are unlimited; you advance by striking the eye N times. The
+// score is one number that only climbs. No fail, no combo, no targets.
 
 import { getLevel, LEVEL_COUNT, CHALLENGE_COUNT } from "./levels.js";
-import { scoreShot, starsFor } from "./scoring.js";
+import { scoreShot } from "./scoring.js";
 
 export class Game {
-  constructor({ scene, ui, audio, input, leaderboard }) {
+  constructor({ scene, ui, audio, input }) {
     this.scene = scene;
     this.ui = ui;
     this.audio = audio;
     this.input = input;
-    this.leaderboard = leaderboard;
 
     this.state = "title";
-    this.score = 0;
+    this.score = 0;          // one cumulative score for the whole run
     this.levelIndex = 0;
-    this.levelScore = 0;
-    this.arrowsUsed = 0;
-    this.combo = 0;          // consecutive scoring hits (across the whole run)
-    this.bestCombo = 0;
-    this.inFlight = 0;       // arrows currently in the air
-    this._ending = false;
+    this.eyeHits = 0;        // eye strikes so far this level
+    this._advancing = false;
   }
 
   // ---- run lifecycle --------------------------------------------------------
   newGame() {
-    this._startRun();
-  }
-
-  _startRun() {
     this.score = 0;
     this.levelIndex = 0;
-    this.combo = 0;
-    this.bestCombo = 0;
     this.startLevel();
   }
 
@@ -42,23 +34,14 @@ export class Game {
     this.cfg = cfg;
     this.scene.setConfig(cfg);
     this.scene.resetLevel();
-    this.levelScore = 0;
-    this.arrowsUsed = 0;
-    this.inFlight = 0;
-    this._ending = false;
+    this.eyeHits = 0;
+    this._advancing = false;
 
     this.state = "playing";
     this.ui.hideScreens();
     this.ui.setPlaying(true);
     const label = this._levelLabel();
-    this.ui.setHud({
-      levelLabel: label,
-      levelScore: 0,
-      target: cfg.target,
-      arrows: cfg.arrows,
-      arrowsUsed: 0,
-      combo: this.combo,
-    });
+    this.ui.setHud({ levelLabel: label, score: this.score, eyeHits: 0, eyeGoal: cfg.eyeHits });
     this.ui.showLevelIntro({ label, name: cfg.name, calibration: !!cfg.calibration });
     this.input.setActive(true);
   }
@@ -76,103 +59,67 @@ export class Game {
     this.scene.update(dt);
   }
 
-  // ---- firing ---------------------------------------------------------------
+  // ---- firing (unlimited arrows) --------------------------------------------
   fire(pos) {
     if (this.state !== "playing") return;
-    if (this.arrowsUsed >= this.cfg.arrows) return; // out of shots
-
-    this.arrowsUsed += 1;
-    this.inFlight += 1;
-    this.ui.setHud({ arrows: this.cfg.arrows, arrowsUsed: this.arrowsUsed });
-
     // The arrow flies to the chosen point; the shot is judged where it LANDS,
     // against where the eye is at that moment — so you must lead the target.
     this.scene.spawnArrow(pos.x, pos.y, () => this._resolveHit(pos));
   }
 
   _resolveHit(pos) {
-    this.inFlight = Math.max(0, this.inFlight - 1);
     const eye = this.scene.getEye();
     const dist = Math.hypot(pos.x - eye.x, pos.y - eye.y);
-    const result = scoreShot({
-      dist,
-      fishRadius: this.scene.getFishRadius(),
-      level: this.levelIndex,
-      combo: this.combo,
-    });
-    this.levelScore += result.points;
+    const result = scoreShot({ dist, fishRadius: this.scene.getFishRadius() });
 
-    if (result.points > 0) {
-      this.combo += 1;
-      this.bestCombo = Math.max(this.bestCombo, this.combo);
-    } else {
-      this.combo = 0;
-    }
+    this.score += result.points;
 
     // Visuals + sound, scaled by how good the hit was.
-    this.scene.addImpact(pos.x, pos.y, result.ring.color);
-    if (result.ring.bull) {
+    if (result.ring.key === "bullseye") {
+      this.scene.addImpact(pos.x, pos.y, result.ring.color);
       this.scene.addImpact(eye.x, eye.y, result.ring.color);
       this.scene.burst(eye.x, eye.y, result.ring.color, 22, 1.3);
-      this.scene.shake(result.ring.key === "perfect" ? 14 : 10);
+      this.scene.shake(12);
       this.audio.bullseye();
+    } else if (result.eyeHit) {
+      this.scene.addImpact(pos.x, pos.y, result.ring.color);
+      this.scene.burst(pos.x, pos.y, result.ring.color, 14, 1.0);
+      this.scene.shake(7);
+      this.audio.hit();
     } else if (result.points > 0) {
-      this.scene.burst(pos.x, pos.y, result.ring.color, 10, 0.8);
-      this.scene.shake(4);
+      this.scene.addImpact(pos.x, pos.y, result.ring.color);
+      this.scene.burst(pos.x, pos.y, result.ring.color, 8, 0.6);
+      this.scene.shake(3);
       this.audio.hit();
     } else {
       this.scene.burst(pos.x, pos.y, "#6699aa", 6, 0.5);
       this.audio.miss();
     }
 
-    const comboTag = this.combo > 1 && result.points > 0 ? `  ×${this.combo}` : "";
-    if (result.ring.bull) this.ui.toastMsg(`${result.ring.label} +${result.points}${comboTag}`, result.ring.color);
-    else if (result.points > 0) this.ui.toastMsg(`${result.ring.label} +${result.points}${comboTag}`, result.ring.color);
+    if (result.points > 0) this.ui.toastMsg(`${result.ring.label} +${result.points}`, result.ring.color);
     else this.ui.toastMsg("Missed — lead the eye", "#ff7a7a");
 
-    this.ui.setHud({ levelScore: this.levelScore, target: this.cfg.target, combo: this.combo });
+    if (result.eyeHit) this.eyeHits += 1;
+    this.ui.setHud({ score: this.score, eyeHits: this.eyeHits, eyeGoal: this.cfg.eyeHits });
 
-    // End the level once every loosed arrow has landed.
-    if (this.arrowsUsed >= this.cfg.arrows && this.inFlight === 0 && !this._ending) {
-      this._ending = true;
+    // Advance once the eye has been struck enough times.
+    if (this.eyeHits >= this.cfg.eyeHits && !this._advancing) {
+      this._advancing = true;
       this.input.setActive(false);
-      setTimeout(() => this._endLevel(), 450);
+      setTimeout(() => this._completeLevel(), 600);
     }
   }
 
-  _endLevel() {
-    const passed = this.cfg.calibration || this.levelScore >= this.cfg.target;
-    const stars = this.cfg.calibration ? -1 : starsFor(this.levelScore, this.cfg.target);
-
-    if (passed) {
-      this.score += this.levelScore;       // commit the cleared level's points
-      this.ui.setPlaying(false);
-      this.audio.levelUp();
-      if (!this.cfg.calibration && this.levelIndex === CHALLENGE_COUNT) {
-        this.state = "finale";
-        this.ui.showFinale({ total: this.score, stars });
-      } else {
-        this.state = "levelcomplete";
-        this.ui.showLevelComplete({
-          total: this.score,
-          stars,
-          calibration: !!this.cfg.calibration,
-        });
-      }
+  _completeLevel() {
+    this.ui.setPlaying(false);
+    this.audio.levelUp();
+    if (!this.cfg.calibration && this.levelIndex === CHALLENGE_COUNT) {
+      this.state = "finale";
+      this.ui.showFinale({ total: this.score });
     } else {
-      this.state = "failed";
-      this.ui.setPlaying(false);
-      this.audio.gameOver();
-      this.ui.showFail({
-        name: this.cfg.name,
-        levelScore: this.levelScore,
-        target: this.cfg.target,
-      });
+      this.state = "levelcomplete";
+      this.ui.showLevelComplete({ total: this.score, calibration: !!this.cfg.calibration });
     }
-  }
-
-  retryLevel() {
-    this.startLevel(); // replay the same level with fresh arrows
   }
 
   nextLevel() {

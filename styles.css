@@ -477,3 +477,36 @@ h2 {
   72% { opacity: 1; }
   100% { opacity: 0; transform: translateY(-6px); }
 }
+
+/* Objective: strike the eye N times (top center) */
+.objective {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 56px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+}
+.objective-label {
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.objective-pips { display: inline-flex; gap: 6px; }
+.objective-pips .pip {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  background: transparent;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+.objective-pips .pip.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 8px rgba(255, 207, 107, 0.6);
+}
