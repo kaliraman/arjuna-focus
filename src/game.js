@@ -40,7 +40,7 @@ export class Game {
 
     this.state = "playing";
     this.ui.hideScreens();
-    this.ui.hideCleared();
+    this.input.setAdvanceMode(false);
     this.ui.setPlaying(true);
     const label = this._levelLabel();
     this.ui.setHud({ levelLabel: label, score: this.score, eyeHits: 0, eyeGoal: cfg.eyeHits });
@@ -48,11 +48,14 @@ export class Game {
     this.input.setActive(true);
   }
 
-  // "Warm-up" for the calibration level, "3 / 8" for numbered levels, "Endless".
+  // The LEVEL chip is a pure progress counter, so it never echoes the big level
+  // name: "3 / 8" for the numbered run, null for the warm-up (chip hidden, since
+  // there's no number yet), and "∞" for endless (the name already reads
+  // "Endless N").
   _levelLabel() {
-    if (this.cfg.calibration) return t("warmup");
+    if (this.cfg.calibration) return null;
     if (this.levelIndex <= CHALLENGE_COUNT) return `${this.levelIndex} / ${CHALLENGE_COUNT}`;
-    return t("lvl_endless");
+    return "∞";
   }
 
   _levelName(cfg) {
@@ -133,8 +136,12 @@ export class Game {
           this.ui.showFinale({ total: this.score });
         }, 1800);
       } else {
-        // Non-blocking: keep the pool + lotus on screen; a Next arrow appears.
-        this.ui.showCleared();
+        // Non-blocking: keep the pool + flower on screen. The flower folds into
+        // a pulsing chevron at the centre (its own colour); a tap anywhere
+        // advances.
+        this.ui.clearObjective();
+        this.scene.showNextCue();
+        this.input.setAdvanceMode(true);
       }
     }
   }

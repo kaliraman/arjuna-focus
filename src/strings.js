@@ -5,8 +5,7 @@
 const STRINGS = {
   en: {
     title: "Arjun ka Nishan",
-    lede: "Strike where the eye will be — not where it is.",
-    howmini: "Your arrow takes a moment. Lead the eye.",
+    lede: "Strike where the eye <em>will</em> be — not where it is.",
     play: "Play",
     howto: "How to play",
     legend: "The legend",
@@ -55,8 +54,7 @@ const STRINGS = {
   },
   hi: {
     title: "अर्जुन का निशान",
-    lede: "वहाँ वार करें जहाँ आँख होगी — जहाँ वह अभी है वहाँ नहीं।",
-    howmini: "तीर को पहुँचने में पल लगता है। आँख से आगे का अनुमान करें।",
+    lede: "वहाँ वार करें जहाँ आँख <em>होगी</em> — जहाँ वह अभी है वहाँ नहीं।",
     play: "खेलें",
     howto: "कैसे खेलें",
     legend: "कथा",

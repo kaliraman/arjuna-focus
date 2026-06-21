@@ -27,7 +27,7 @@
     <div id="hud" class="hud hidden">
       <div id="level-name" class="level-name"></div>
       <div class="hud-row">
-        <div class="hud-item"><span class="hud-label" data-i18n="hud_level">Level</span><span id="hud-level">1</span></div>
+        <div class="hud-item" id="hud-level-item"><span class="hud-label" data-i18n="hud_level">Level</span><span id="hud-level">1</span></div>
         <div class="hud-item"><span class="hud-label" data-i18n="hud_score">Score</span><span id="hud-score">0</span></div>
       </div>
       <div id="objective" class="objective-hud">
@@ -53,8 +53,7 @@
     <section id="screen-title" class="screen">
       <div class="panel">
         <h1 class="title title-brand" data-i18n="title">Arjun ka Nishan</h1>
-        <p class="lede" data-i18n="lede">Strike where the eye will be — not where it is.</p>
-        <p class="how-mini" data-i18n="howmini">Your arrow takes a moment. Lead the eye.</p>
+        <p class="lede" data-i18n="lede">Strike where the eye <em>will</em> be — not where it is.</p>
         <button id="btn-start" class="btn btn-primary" data-i18n="play">Play</button>
         <div class="title-links">
           <button id="btn-how" class="btn-link" data-i18n="howto">How to play</button>
@@ -102,9 +101,6 @@
         </div>
       </div>
     </section>
-
-    <!-- Level cleared — a pulsing arrow at the right edge (non-blocking) -->
-    <button id="btn-next" class="next-arrow hidden" aria-label="Next">➜</button>
 
     <!-- Finale (cleared the final challenge level) -->
     <section id="screen-finale" class="screen hidden">

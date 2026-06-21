@@ -36,6 +36,7 @@ const input = new Input(canvas, {
     Audio.twang();
     game.fire(pos);
   },
+  onAdvance: () => game.nextLevel(),
 });
 
 const game = new Game({ scene, ui, audio: Audio, input });
@@ -96,7 +97,6 @@ on("btn-how", () => openInfo("how", "title"));
 on("btn-legend", () => openInfo("legend", "title"));
 on("btn-how-back", () => ui.show(infoReturn));
 on("btn-legend-back", () => ui.show(infoReturn));
-on("btn-next", () => game.nextLevel());
 on("btn-finale-again", () => game.newGame());
 on("btn-finale-endless", () => game.keepGoing());
 on("btn-finale-home", () => game.toTitle());

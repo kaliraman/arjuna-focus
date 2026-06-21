@@ -19,9 +19,9 @@ export class UI {
     this.levelName = $("level-name");
     this.toast = $("toast");
     this.wordBloomEl = $("word-bloom");
-    this.nextArrow = $("btn-next");
     this.el = {
       level: $("hud-level"),
+      levelItem: $("hud-level-item"),
       score: $("hud-score"),
       objectivePips: $("objective-pips"),
       sound: $("btn-menu-sound"),
@@ -42,14 +42,17 @@ export class UI {
 
   setPlaying(on) {
     this.hud.classList.toggle("hidden", !on);
-    if (!on) {
-      this.objective.classList.add("hidden");
-      this.nextArrow.classList.add("hidden");
-    }
+    if (!on) this.objective.classList.add("hidden");
   }
 
   setHud({ levelLabel, score, eyeHits, eyeGoal }) {
-    if (levelLabel != null) this.el.level.textContent = levelLabel;
+    // levelLabel === null → no number applies (the warm-up): hide the chip so it
+    // doesn't echo the big level name. undefined → leave the chip untouched.
+    if (levelLabel !== undefined) {
+      const hide = levelLabel === null;
+      this.el.levelItem.classList.toggle("hidden", hide);
+      if (!hide) this.el.level.textContent = levelLabel;
+    }
     if (score != null) this.el.score.textContent = score.toLocaleString();
     if (eyeGoal != null) {
       this.objective.classList.remove("hidden");
@@ -80,13 +83,9 @@ export class UI {
     el.classList.add("show");
   }
 
-  // Non-blocking level clear: the scene + lotus stay visible; a pulsing arrow
-  // at the right edge advances.
-  showCleared() {
-    this.objective.classList.add("hidden");
-    this.nextArrow.classList.remove("hidden");
-  }
-  hideCleared() { this.nextArrow.classList.add("hidden"); }
+  // Non-blocking level clear: the scene + flower stay visible (the centre
+  // chevron is drawn on the canvas by the scene), so just clear the objective.
+  clearObjective() { this.objective.classList.add("hidden"); }
 
   showFinale({ total }) {
     this.el.finaleSub.textContent = `${t("finalScore")} ${total.toLocaleString()}`;

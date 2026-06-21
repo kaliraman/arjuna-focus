@@ -17,6 +17,55 @@ function hexA(hex, a) {
   return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
 
+// A different flower blooms at each level's clear (same flat, procedural style).
+//   shape  : petal silhouette — "pointed" | "oval" | "slim" | "broad"
+//   rings  : layered petal rings (count, len, wid as fractions of base, colour)
+//   center : [inner, outer] radial-gradient for the seed-pod
+//   stamen : optional protruding pistil (hibiscus)
+//   arrow  : the colour of the "advance" chevron for this level
+const FLOWERS = {
+  lotus: {
+    shape: "pointed", arrow: "#f6a9c6", center: ["#ffe6a0", "#d98e3a"], centerR: 0.2,
+    rings: [
+      { count: 8, len: 1.0, wid: 0.34, col: "#f7c9da", off: 0 },
+      { count: 8, len: 0.82, wid: 0.3, col: "#fde3ee", off: Math.PI / 8 },
+      { count: 7, len: 0.6, wid: 0.28, col: "#ffd98a", off: Math.PI / 7 },
+    ],
+  },
+  marigold: {
+    shape: "oval", arrow: "#f7991f", center: ["#c9701a", "#9a5212"], centerR: 0.14,
+    rings: [
+      { count: 16, len: 0.95, wid: 0.2, col: "#e8801f", off: 0 },
+      { count: 16, len: 0.78, wid: 0.2, col: "#f5a32c", off: Math.PI / 16 },
+      { count: 13, len: 0.58, wid: 0.19, col: "#ffc24a", off: 0 },
+      { count: 11, len: 0.4, wid: 0.18, col: "#ffd96a", off: Math.PI / 11 },
+    ],
+  },
+  hibiscus: {
+    shape: "broad", arrow: "#ef4d5e", center: ["#ffe07a", "#e8b53a"], centerR: 0.13, stamen: "#e8456a",
+    rings: [
+      { count: 5, len: 1.05, wid: 0.46, col: "#e23b4e", off: 0 },
+      { count: 5, len: 0.62, wid: 0.3, col: "#ff7d88", off: 0 },
+    ],
+  },
+  jasmine: {
+    shape: "slim", arrow: "#eef3f0", center: ["#fff0b0", "#f0c64e"], centerR: 0.1,
+    rings: [
+      { count: 6, len: 1.0, wid: 0.17, col: "#ffffff", off: 0 },
+      { count: 6, len: 0.74, wid: 0.16, col: "#eef4f2", off: Math.PI / 6 },
+    ],
+  },
+  rose: {
+    shape: "oval", arrow: "#e8506e", center: ["#a52742", "#7d1b32"], centerR: 0.16,
+    rings: [
+      { count: 9, len: 0.98, wid: 0.26, col: "#f06a86", off: 0 },
+      { count: 8, len: 0.76, wid: 0.25, col: "#e2486a", off: Math.PI / 8 },
+      { count: 7, len: 0.55, wid: 0.24, col: "#c5364f", off: 0 },
+      { count: 5, len: 0.36, wid: 0.22, col: "#a52742", off: Math.PI / 5 },
+    ],
+  },
+};
+
 export class Scene {
   constructor() {
     this.t = 0;              // seconds elapsed (level clock)
@@ -37,7 +86,8 @@ export class Scene {
     this.particles = [];     // impact sparks
     this.glows = [];         // soft radial blooms (perfect strike)
     this.petals = [];        // (legacy) generic petals — unused, lotus replaces it
-    this.lotus = null;       // blooming lotus on a level clear
+    this.lotus = null;       // blooming flower on a level clear
+    this.nextCue = null;     // pulsing "advance" chevron (after the flower opens)
     this.ambientRings = [];
     this.shakeMag = 0;
     this.shakeT = 0;
@@ -72,6 +122,7 @@ export class Scene {
     this.glows = [];
     this.petals = [];
     this.lotus = null;
+    this.nextCue = null;
     this.shakeMag = 0;
     this.shakeT = 0;
     this._slowT = 0;
@@ -174,6 +225,7 @@ export class Scene {
       this.lotus.age += dt; // real time — it blooms outside gameplay
       if (this.lotus.age > this.lotus.dur) this.lotus = null;
     }
+    if (this.nextCue) this.nextCue.age += dt; // real time — drives the pulse
 
     for (const g of this.glows) g.age += wdt;
     this.glows = this.glows.filter((g) => g.age < g.dur);
@@ -308,9 +360,18 @@ export class Scene {
     if (strength >= 0.9) this.slowmo(0.7, 0.05); // freeze only for dead-center
   }
 
-  // A lotus blooms open at the centre on a level clear.
+  // The level's flower blooms open at the centre on a level clear.
   celebrate() {
-    this.lotus = { age: 0, dur: 2.8 };
+    const type = (this.cfg && this.cfg.flower) || "lotus";
+    this.lotus = { age: 0, dur: 2.2, type };
+  }
+
+  // After the bloom, a chevron in the flower's colour pulses at the centre as
+  // the "tap anywhere to advance" cue. Persists until the next level starts.
+  showNextCue() {
+    const type = (this.cfg && this.cfg.flower) || "lotus";
+    const f = FLOWERS[type] || FLOWERS.lotus;
+    this.nextCue = { age: 0, col: f.arrow };
   }
 
   bowStart() { this.bow.drawing = true; this.bow.power = 0; }
@@ -355,7 +416,8 @@ export class Scene {
     this._drawGlows(ctx);
     this._drawParticles(ctx);
     this._drawPetals(ctx);
-    this._drawLotus(ctx);
+    this._drawFlower(ctx);
+    this._drawNextCue(ctx);
     this._drawBow(ctx);
     this._vignette(ctx);
     ctx.restore();
@@ -426,52 +488,115 @@ export class Scene {
     }
   }
 
-  // A sacred lotus (padma): layered rings of pointed petals opening from a
-  // golden centre. Pink/white outer petals, gold inner, drawn procedurally.
-  _drawLotus(ctx) {
+  // The level's flower opens from a centre seed-pod, layered petals out. Shape,
+  // petal counts, and colours come from FLOWERS[type]; all drawn procedurally.
+  _drawFlower(ctx) {
     if (!this.lotus) return;
+    const f = FLOWERS[this.lotus.type] || FLOWERS.lotus;
     const age = this.lotus.age, dur = this.lotus.dur;
     const open = Math.min(1, age / 0.8);                    // opens over 0.8s
     const ease = 1 - Math.pow(1 - open, 3);                 // easeOutCubic
     const fade = age < dur * 0.7 ? 1 : Math.max(0, 1 - (age - dur * 0.7) / (dur * 0.3));
     const base = Math.min(this.w, this.h) * 0.2;
-    const rings = [
-      { count: 8, len: 1.0, wid: 0.34, col: "#f7c9da", off: 0 },
-      { count: 8, len: 0.82, wid: 0.3, col: "#fde3ee", off: Math.PI / 8 },
-      { count: 7, len: 0.6, wid: 0.28, col: "#ffd98a", off: Math.PI / 7 },
-    ];
+
     ctx.save();
     ctx.translate(this.cx, this.cy);
     ctx.globalAlpha = fade;
-    for (const ring of rings) {
+    for (const ring of f.rings) {
       for (let i = 0; i < ring.count; i++) {
         const a = ring.off + (i / ring.count) * Math.PI * 2;
         ctx.save();
         ctx.rotate(a);
         const len = base * ring.len * (0.3 + 0.7 * ease);
         const wid = base * ring.wid * (0.45 + 0.55 * ease);
-        ctx.beginPath();
-        ctx.moveTo(0, -len * 0.12);
-        ctx.quadraticCurveTo(wid, -len * 0.55, 0, -len);    // out to the tip
-        ctx.quadraticCurveTo(-wid, -len * 0.55, 0, -len * 0.12);
-        ctx.closePath();
+        this._petal(ctx, f.shape, len, wid);
         ctx.fillStyle = ring.col;
         ctx.fill();
-        ctx.strokeStyle = "rgba(180, 90, 120, 0.25)";
+        ctx.strokeStyle = "rgba(120, 70, 80, 0.2)";
         ctx.lineWidth = 1;
         ctx.stroke();
         ctx.restore();
       }
     }
-    // golden seed-pod centre
-    const cr = base * 0.2 * (0.4 + 0.6 * ease);
+    // A protruding pistil for flowers that have one (hibiscus).
+    if (f.stamen) {
+      const sl = base * 0.95 * (0.3 + 0.7 * ease);
+      ctx.strokeStyle = f.stamen;
+      ctx.lineWidth = Math.max(2, base * 0.03);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, -sl);
+      ctx.stroke();
+      ctx.fillStyle = "#ffd86a";
+      ctx.beginPath();
+      ctx.arc(0, -sl, base * 0.05, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // seed-pod centre
+    const cr = base * f.centerR * (0.4 + 0.6 * ease);
     const cg = ctx.createRadialGradient(0, 0, 0, 0, 0, cr);
-    cg.addColorStop(0, "#ffe6a0");
-    cg.addColorStop(1, "#d98e3a");
+    cg.addColorStop(0, f.center[0]);
+    cg.addColorStop(1, f.center[1]);
     ctx.fillStyle = cg;
     ctx.beginPath();
     ctx.arc(0, 0, cr, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
+  }
+
+  // One petal in the local frame, pointing up (-y). Shape varies the silhouette.
+  _petal(ctx, shape, len, wid) {
+    ctx.beginPath();
+    if (shape === "pointed") {
+      ctx.moveTo(0, -len * 0.12);
+      ctx.quadraticCurveTo(wid, -len * 0.55, 0, -len);
+      ctx.quadraticCurveTo(-wid, -len * 0.55, 0, -len * 0.12);
+      ctx.closePath();
+    } else if (shape === "slim") {
+      ctx.ellipse(0, -len * 0.5, wid, len * 0.5, 0, 0, Math.PI * 2);
+    } else if (shape === "broad") {
+      ctx.ellipse(0, -len * 0.5, wid, len * 0.52, 0, 0, Math.PI * 2);
+    } else { // oval (rounded blob — marigold / rose)
+      ctx.ellipse(0, -len * 0.55, wid, len * 0.45, 0, 0, Math.PI * 2);
+    }
+  }
+
+  // The "tap anywhere to advance" cue: a chevron in the flower's colour pulsing
+  // at the centre, like the ripple's current. Drawn after the flower opens.
+  _drawNextCue(ctx) {
+    if (!this.nextCue) return;
+    // Hold back until the flower has begun to fade, so it reads as the flower
+    // "folding" into the chevron rather than the two overlapping.
+    const t = this.nextCue.age - 1.3;
+    if (t <= 0) return;
+    const inGrow = Math.min(1, t / 0.4);                    // ease-in entrance
+    const pulse = 0.5 + 0.5 * Math.sin(t * 4.2);            // 0..1 breathing
+    const s = Math.min(this.w, this.h) * 0.052 * (0.9 + 0.18 * pulse) * inGrow;
+    const col = this.nextCue.col;
+
+    ctx.save();
+    ctx.translate(this.cx, this.cy);
+    ctx.globalAlpha = (0.55 + 0.45 * pulse) * inGrow;
+    // soft disc behind so the chevron reads on any palette
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 2.4);
+    g.addColorStop(0, "rgba(6, 16, 22, 0.5)");
+    g.addColorStop(1, "rgba(6, 16, 22, 0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 2.4, 0, Math.PI * 2);
+    ctx.fill();
+    // double chevron pointing right
+    ctx.strokeStyle = col;
+    ctx.lineWidth = Math.max(4, s * 0.42);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    for (const ox of [-s * 0.55, s * 0.35]) {
+      ctx.beginPath();
+      ctx.moveTo(ox - s * 0.35, -s);
+      ctx.lineTo(ox + s * 0.55, 0);
+      ctx.lineTo(ox - s * 0.35, s);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
