@@ -23,20 +23,25 @@
     <!-- Pause / menu (top-right) -->
     <button id="menu-btn" class="icon-btn menu-corner" title="Menu" aria-label="Open menu">☰</button>
 
-    <!-- HUD (top-left): level, score, and the objective beneath -->
+    <!-- HUD (top-left stack): level name, level/score, eye objective -->
     <div id="hud" class="hud hidden">
+      <div id="level-name" class="level-name"></div>
       <div class="hud-row">
         <div class="hud-item"><span class="hud-label" data-i18n="hud_level">Level</span><span id="hud-level">1</span></div>
         <div class="hud-item"><span class="hud-label" data-i18n="hud_score">Score</span><span id="hud-score">0</span></div>
       </div>
       <div id="objective" class="objective-hud">
-        <span class="objective-label" data-i18n="strikeEye">Strike the eye</span>
+        <span class="eye-icon" aria-label="Strike the eye">
+          <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" fill="#f3f7f4"/>
+            <circle cx="12" cy="12" r="9" fill="none" stroke="#ffcf6b" stroke-width="2.5"/>
+            <circle cx="12" cy="12" r="3.6" fill="#0a1418"/>
+            <circle cx="10.6" cy="10.6" r="1.3" fill="#fff"/>
+          </svg>
+        </span>
         <span id="objective-pips" class="objective-pips"></span>
       </div>
     </div>
-
-    <!-- Current level name (top-center) -->
-    <div id="level-name" class="level-name hidden"></div>
 
     <!-- Shot feedback toast -->
     <div id="toast" class="toast hidden"></div>

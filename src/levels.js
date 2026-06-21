@@ -28,15 +28,15 @@ const PALETTES = {
 };
 
 export const LEVELS = [
-  { key: "calibration",    name: "Calibration",      motion: 0.20, distraction: 0.00, ripple: 0.3, clarityFlash: false, eyeHits: 1, calibration: true, palette: PALETTES.calm,    kinds: ["leaf"] },
-  { key: "stillpool",      name: "The Still Pool",   motion: 0.35, distraction: 0.00, ripple: 0.5, clarityFlash: false, eyeHits: 4, palette: PALETTES.calm,    kinds: ["leaf"] },
-  { key: "firstcurrent",   name: "First Current",    motion: 0.55, distraction: 0.12, ripple: 0.8, clarityFlash: false, eyeHits: 4, palette: PALETTES.current, kinds: ["leaf", "bird"] },
-  { key: "driftingleaves", name: "Drifting Leaves",  motion: 0.80, distraction: 0.28, ripple: 1.0, clarityFlash: false, eyeHits: 3, palette: PALETTES.leaf,    kinds: ["leaf", "leaf", "bird"] },
-  { key: "restlesswater",  name: "Restless Water",   motion: 1.10, distraction: 0.42, ripple: 1.3, clarityFlash: false, eyeHits: 3, palette: PALETTES.deep,    kinds: ["cloud", "bird", "leaf"] },
-  { key: "crowdedsky",     name: "The Crowded Sky",  motion: 1.45, distraction: 0.60, ripple: 1.5, clarityFlash: false, eyeHits: 2, palette: PALETTES.dusk,    kinds: ["cloud", "cloud", "bird"] },
-  { key: "veilofglare",    name: "Veil of Glare",    motion: 1.80, distraction: 0.75, ripple: 1.7, clarityFlash: true,  eyeHits: 2, palette: PALETTES.glare,   kinds: ["glare", "glare", "cloud"] },
-  { key: "whirlingeye",    name: "The Whirling Eye", motion: 2.30, distraction: 0.88, ripple: 1.9, clarityFlash: true,  eyeHits: 1, palette: PALETTES.dusky,   kinds: ["cloud", "glare", "leaf", "bird"] },
-  { key: "arjunasgaze",    name: "Arjuna's Gaze",    motion: 2.90, distraction: 1.00, ripple: 2.1, clarityFlash: true,  eyeHits: 1, palette: PALETTES.storm,   kinds: ["cloud", "glare", "bird"] },
+  { key: "calibration",    name: "Calibration",      motion: 0.20, distraction: 0.00, ripple: 0.3, clarityFlash: false, eyeHits: 1, calibration: true, palette: PALETTES.calm,    kinds: ["leaf"],                          fish: "minnow" },
+  { key: "stillpool",      name: "The Still Pool",   motion: 0.35, distraction: 0.00, ripple: 0.5, clarityFlash: false, eyeHits: 4, palette: PALETTES.calm,    kinds: ["leaf"],                          fish: "minnow" },
+  { key: "firstcurrent",   name: "First Current",    motion: 0.55, distraction: 0.12, ripple: 0.8, clarityFlash: false, eyeHits: 4, palette: PALETTES.current, kinds: ["leaf", "bird"],                  fish: "finned" },
+  { key: "driftingleaves", name: "Drifting Leaves",  motion: 0.80, distraction: 0.28, ripple: 1.0, clarityFlash: false, eyeHits: 3, palette: PALETTES.leaf,    kinds: ["leaf", "leaf", "bird"],          fish: "halibut" },
+  { key: "restlesswater",  name: "Restless Water",   motion: 1.10, distraction: 0.42, ripple: 1.3, clarityFlash: false, eyeHits: 3, palette: PALETTES.deep,    kinds: ["cloud", "bird", "leaf"],         fish: "tuna" },
+  { key: "crowdedsky",     name: "The Crowded Sky",  motion: 1.45, distraction: 0.60, ripple: 1.5, clarityFlash: false, eyeHits: 2, palette: PALETTES.dusk,    kinds: ["cloud", "cloud", "bird"],        fish: "finned" },
+  { key: "veilofglare",    name: "Veil of Glare",    motion: 1.80, distraction: 0.75, ripple: 1.7, clarityFlash: true,  eyeHits: 2, palette: PALETTES.glare,   kinds: ["glare", "glare", "cloud"],       fish: "swordfish" },
+  { key: "whirlingeye",    name: "The Whirling Eye", motion: 2.30, distraction: 0.88, ripple: 1.9, clarityFlash: true,  eyeHits: 1, palette: PALETTES.dusky,   kinds: ["cloud", "glare", "leaf", "bird"], fish: "marlin" },
+  { key: "arjunasgaze",    name: "Arjuna's Gaze",    motion: 2.90, distraction: 1.00, ripple: 2.1, clarityFlash: true,  eyeHits: 1, palette: PALETTES.storm,   kinds: ["cloud", "glare", "bird"],        fish: "marlin" },
 ];
 
 export function getLevel(i) {

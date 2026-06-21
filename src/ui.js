@@ -42,9 +42,6 @@ export class UI {
 
   setPlaying(on) {
     this.hud.classList.toggle("hidden", !on);
-    this.levelName.classList.toggle("hidden", !on);
-    document.body.classList.toggle("playing", on); // hides the brand title in-game
-
     if (!on) {
       this.objective.classList.add("hidden");
       this.nextArrow.classList.add("hidden");

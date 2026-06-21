@@ -535,32 +535,92 @@ export class Scene {
     const bx = eye.x - Math.cos(facing) * R * 0.5;
     const by = eye.y - Math.sin(facing) * R * 0.5;
 
-    ctx.save();
-    ctx.translate(bx, by);
-    ctx.rotate(facing);
-
     const bodyAlpha = 0.85 * (0.35 + 0.65 * clarity);
     const P = this.cfg.palette || DEFAULT_PALETTE;
 
-    ctx.beginPath();
-    ctx.moveTo(-R * 0.9, 0);
-    ctx.lineTo(-R * 1.5, -R * 0.5);
-    ctx.lineTo(-R * 1.3, 0);
-    ctx.lineTo(-R * 1.5, R * 0.5);
-    ctx.closePath();
-    ctx.fillStyle = hexA(P.fishA, bodyAlpha * 0.85);
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.ellipse(0, 0, R, R * 0.5, 0, 0, Math.PI * 2);
-    const grad = ctx.createLinearGradient(-R, 0, R, 0);
-    grad.addColorStop(0, hexA(P.fishA, bodyAlpha));
-    grad.addColorStop(1, hexA(P.fishB, bodyAlpha));
-    ctx.fillStyle = grad;
-    ctx.fill();
+    ctx.save();
+    ctx.translate(bx, by);
+    ctx.rotate(facing);
+    this._drawFishBody(ctx, R, P, bodyAlpha, this.cfg.fish || "minnow");
     ctx.restore();
 
     this._drawEye(ctx, eye.x, eye.y, R, clarity);
+  }
+
+  // Per-level silhouettes (same flat style). Local frame: +x = head/front (the
+  // eye sits at ~+0.5R), -x = tail. The eye is drawn separately, so the target
+  // never changes — only the body around it.
+  _drawFishBody(ctx, R, P, alpha, shape) {
+    const colA = hexA(P.fishA, alpha), colB = hexA(P.fishB, alpha);
+    const fin = hexA(P.fishA, alpha * 0.8);
+    const grad = ctx.createLinearGradient(-R, 0, R, 0);
+    grad.addColorStop(0, colA);
+    grad.addColorStop(1, colB);
+
+    const straightTail = (len, sp) => {
+      ctx.beginPath();
+      ctx.moveTo(-R * 0.85, 0);
+      ctx.lineTo(-R * len, -R * sp);
+      ctx.lineTo(-R * (len - 0.25), 0);
+      ctx.lineTo(-R * len, R * sp);
+      ctx.closePath(); ctx.fillStyle = fin; ctx.fill();
+    };
+    const forkedTail = (len, sp) => {
+      ctx.beginPath();
+      ctx.moveTo(-R * 0.8, 0);
+      ctx.lineTo(-R * len, -R * sp);
+      ctx.quadraticCurveTo(-R * (len - 0.35), 0, -R * len, R * sp);
+      ctx.closePath(); ctx.fillStyle = fin; ctx.fill();
+    };
+    const dorsal = (h, x0, x1) => {
+      ctx.beginPath();
+      ctx.moveTo(R * x0, -R * 0.26);
+      ctx.quadraticCurveTo(R * ((x0 + x1) / 2), -R * h, R * x1, -R * 0.22);
+      ctx.closePath(); ctx.fillStyle = fin; ctx.fill();
+    };
+    const lowerFin = (h, x0, x1) => {
+      ctx.beginPath();
+      ctx.moveTo(R * x0, R * 0.24);
+      ctx.quadraticCurveTo(R * ((x0 + x1) / 2), R * h, R * x1, R * 0.2);
+      ctx.closePath(); ctx.fillStyle = fin; ctx.fill();
+    };
+    const bill = (from, to) => {
+      ctx.beginPath();
+      ctx.moveTo(R * from, -R * 0.05);
+      ctx.lineTo(R * to, 0);
+      ctx.lineTo(R * from, R * 0.05);
+      ctx.closePath(); ctx.fillStyle = fin; ctx.fill();
+    };
+    const body = (rx, ry) => {
+      ctx.beginPath();
+      ctx.ellipse(0, 0, R * rx, R * ry, 0, 0, Math.PI * 2);
+      ctx.fillStyle = grad; ctx.fill();
+    };
+
+    switch (shape) {
+      case "finned":
+        straightTail(1.5, 0.5); dorsal(0.95, -0.15, 0.55); body(1.0, 0.5);
+        break;
+      case "halibut":
+        straightTail(1.25, 0.42); body(0.92, 0.72);
+        break;
+      case "tuna":
+        forkedTail(1.6, 0.6); dorsal(0.78, 0.05, 0.45); lowerFin(0.5, 0.05, 0.4); body(1.15, 0.42);
+        break;
+      case "swordfish":
+        forkedTail(1.5, 0.52); bill(0.9, 1.6); dorsal(0.6, -0.15, 0.55); body(1.05, 0.37);
+        break;
+      case "marlin":
+        forkedTail(1.6, 0.6); bill(0.95, 1.65);
+        ctx.beginPath();
+        ctx.moveTo(R * 0.55, -R * 0.3);
+        ctx.quadraticCurveTo(R * 0.15, -R * 1.25, -R * 0.35, -R * 0.3);
+        ctx.closePath(); ctx.fillStyle = fin; ctx.fill();
+        body(1.12, 0.35);
+        break;
+      default: // minnow
+        straightTail(1.5, 0.5); body(1.0, 0.5);
+    }
   }
 
   _drawEye(ctx, x, y, R, clarity) {
