@@ -76,21 +76,21 @@ export class Game {
 
     // Feedback, scaled by how good the hit was.
     if (result.ring.key === "bullseye") {
-      // THE payoff: slow-mo savor beat, golden bloom, a word blooms.
-      this.scene.slowmo(0.5);
-      this.scene.bloom(eye.x, eye.y);
-      this.scene.addImpact(eye.x, eye.y, result.ring.color);
-      this.scene.shake(10);
+      // Dead-center: the full hero moment — freeze, flash, bloom, swelling bell.
+      this.scene.hero(eye.x, eye.y, 1.0);
+      this.scene.shake(13);
       this.audio.bullseye();
       this.ui.wordBloom("एकाग्रता");
       this.ui.toastMsg(`${result.ring.label} +${result.points}`, result.ring.color);
+      this._haptic(35);
     } else if (result.eyeHit) {
-      this.scene.addImpact(pos.x, pos.y, result.ring.color);
-      this.scene.burst(pos.x, pos.y, result.ring.color, 14, 1.0);
-      this.scene.shake(6);
-      this.audio.hit();
+      // Any eye-strike gets a snappy, satisfying pop (no time-freeze).
+      this.scene.hero(eye.x, eye.y, 0.55);
+      this.scene.shake(7);
+      this.audio.chime();
       this.ui.wordBloom("साधु");
       this.ui.toastMsg(`${result.ring.label} +${result.points}`, result.ring.color);
+      this._haptic(15);
     } else if (result.points > 0) {
       this.scene.addImpact(pos.x, pos.y, result.ring.color);
       this.scene.burst(pos.x, pos.y, result.ring.color, 8, 0.6);
@@ -118,6 +118,10 @@ export class Game {
       this.audio.levelUp();
       setTimeout(() => this._completeLevel(), 1000);
     }
+  }
+
+  _haptic(ms) {
+    try { if (navigator.vibrate && !this.scene.reduceMotion) navigator.vibrate(ms); } catch { /* unsupported */ }
   }
 
   _missLine() {

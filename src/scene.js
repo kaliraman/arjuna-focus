@@ -37,7 +37,12 @@ export class Scene {
     this.highContrast = false;
     this._slowT = 0;         // remaining real-time of the slow-mo window
     this._slowDur = 0.5;
+    this._slowFloor = 0.15;  // how far time slows (lower = nearer a freeze)
     this._ts = 1;            // current time scale (1 = normal speed)
+    this._heroT = 0;         // hero-moment overlay timer (flash / zoom / vignette)
+    this._heroDur = 0;
+    this._heroStrength = 0;
+    this._zoomAmt = 0;
     this.bow = { drawing: false, power: 0 };
 
     this._eye = { x: 0, y: 0 };
@@ -60,6 +65,8 @@ export class Scene {
     this.shakeT = 0;
     this._slowT = 0;
     this._ts = 1;
+    this._heroT = 0;
+    this._zoomAmt = 0;
     this.bow.drawing = false;
     this.bow.power = 0;
   }
@@ -84,6 +91,7 @@ export class Scene {
   update(dt) {
     // Slow-mo envelope counts REAL time; the world advances at the scaled rate.
     if (this._slowT > 0) this._slowT = Math.max(0, this._slowT - dt);
+    if (this._heroT > 0) this._heroT = Math.max(0, this._heroT - dt);
     this._ts = this._timeScale();
     const wdt = dt * this._ts; // world dt
 
@@ -162,9 +170,10 @@ export class Scene {
 
   _timeScale() {
     if (this._slowT <= 0) return 1;
+    const fl = this._slowFloor;
     const k = this._slowT / this._slowDur; // 1 at start → 0 at end
-    if (k > 0.4) return 0.15;              // held slow right after impact
-    return 0.15 + 0.85 * (1 - k / 0.4);    // ease back to normal over the tail
+    if (k > 0.45) return fl;               // held near-frozen at impact
+    return fl + (1 - fl) * (1 - k / 0.45); // ease back to normal over the tail
   }
 
   _spawn() {
@@ -235,30 +244,52 @@ export class Scene {
     this.shakeT = 0.32;
   }
 
-  // Slow-mo beat for the perfect strike — the savor moment.
-  slowmo(dur = 0.5) {
+  // Slow-mo beat — floor sets how near a freeze (lower = harder freeze).
+  slowmo(dur = 0.5, floor = 0.15) {
     if (this.reduceMotion) return;
     this._slowDur = dur;
+    this._slowFloor = floor;
     this._slowT = dur;
   }
 
-  // Golden bloom + rising gold motes from the pupil on a perfect strike.
-  bloom(x, y) {
-    this.glows.push({ x, y, age: 0, dur: 0.75 });
-    const n = this.reduceMotion ? 8 : 22;
+  // Golden bloom + rising gold motes; scales with the strike's strength.
+  bloom(x, y, strength = 1) {
+    this.glows.push({ x, y, age: 0, dur: 0.55 + strength * 0.35, max: this.fishRadius * (1.6 + strength * 1.8) });
+    const n = this.reduceMotion ? 6 : Math.round(10 + strength * 18);
     for (let i = 0; i < n; i++) {
-      const ang = -Math.PI / 2 + (Math.random() - 0.5) * 1.8;
-      const spd = 40 + Math.random() * 120;
+      const ang = -Math.PI / 2 + (Math.random() - 0.5) * 2;
+      const spd = (40 + Math.random() * 130) * (0.7 + strength * 0.5);
       this.particles.push({
         x, y,
         vx: Math.cos(ang) * spd,
         vy: Math.sin(ang) * spd,
         age: 0,
-        life: 0.6 + Math.random() * 0.6,
-        size: 1.5 + Math.random() * 2.8,
+        life: 0.6 + Math.random() * 0.7,
+        size: 1.5 + Math.random() * 3,
         color: Math.random() < 0.5 ? "#ffe8a8" : "#ffcf6b",
       });
     }
+  }
+
+  // A bold expanding shock ring from the strike point.
+  shockwave(x, y, strength = 1) {
+    this.impacts.push({
+      x, y, age: 0, dur: 0.45 + strength * 0.25, color: "#ffe8a8",
+      shock: true, max: this.fishRadius * (1.8 + strength * 2.6),
+    });
+  }
+
+  // Composed hero moment: bloom + shock + flash/zoom/vignette; the perfect
+  // strike (strength ~1) also gets a hard slow-mo freeze.
+  hero(x, y, strength = 1) {
+    this.bloom(x, y, strength);
+    this.shockwave(x, y, strength);
+    if (this.reduceMotion) return;
+    this._zoomAmt = 0.04 + strength * 0.1;
+    this._heroStrength = strength;
+    this._heroDur = strength >= 0.9 ? 0.75 : 0.34;
+    this._heroT = this._heroDur;
+    if (strength >= 0.9) this.slowmo(0.7, 0.05); // freeze only for dead-center
   }
 
   // Soft rising petals for a level clear.
@@ -297,9 +328,10 @@ export class Scene {
       const k = this.shakeT / 0.32;
       ctx.translate((Math.random() - 0.5) * this.shakeMag * k, (Math.random() - 0.5) * this.shakeMag * k);
     }
-    // Camera push-in toward the eye during the slow-mo beat.
-    if (this._ts < 0.999) {
-      const zoom = 1 + (1 - this._ts) * 0.05;
+    // Camera push-in toward the eye during the hero beat.
+    if (this._heroT > 0 && this._zoomAmt > 0) {
+      const k = this._heroT / this._heroDur; // 1 at impact → 0
+      const zoom = 1 + this._zoomAmt * k;
       ctx.translate(this._eye.x, this._eye.y);
       ctx.scale(zoom, zoom);
       ctx.translate(-this._eye.x, -this._eye.y);
@@ -324,6 +356,35 @@ export class Scene {
     this._drawBow(ctx);
     this._vignette(ctx);
     ctx.restore();
+
+    this._drawHero(ctx); // full-screen flash/wash/vignette — outside the zoom
+  }
+
+  _drawHero(ctx) {
+    if (this._heroT <= 0) return;
+    const k = this._heroT / this._heroDur; // 1 → 0
+    const s = this._heroStrength;
+    const W = this.w, H = this.h;
+    // A brief white flash at the very moment of impact.
+    const flashK = Math.max(0, (this._heroT - (this._heroDur - 0.12)) / 0.12);
+    if (flashK > 0) {
+      ctx.save();
+      ctx.fillStyle = `rgba(255, 250, 235, ${0.5 * s * flashK})`;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+    // Gold wash over the whole scene.
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = `rgba(255, 200, 90, ${0.16 * s * k})`;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+    // Warm vignette pulse.
+    const v = ctx.createRadialGradient(this.cx, this.cy, Math.min(W, H) * 0.18, this.cx, this.cy, Math.max(W, H) * 0.7);
+    v.addColorStop(0, "rgba(0,0,0,0)");
+    v.addColorStop(1, `rgba(110, 60, 0, ${0.42 * s * k})`);
+    ctx.fillStyle = v;
+    ctx.fillRect(0, 0, W, H);
   }
 
   _drawGlows(ctx) {
@@ -332,11 +393,12 @@ export class Scene {
     ctx.globalCompositeOperation = "lighter";
     for (const g of this.glows) {
       const k = g.age / g.dur;
-      const r = this.fishRadius * (0.4 + k * 2.4);
-      const a = (1 - k) * 0.6;
+      const max = g.max || this.fishRadius * 2.4;
+      const r = max * (0.2 + k * 0.8);
+      const a = (1 - k) * 0.7;
       const rg = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, r);
-      rg.addColorStop(0, `rgba(255, 224, 150, ${a})`);
-      rg.addColorStop(0.5, `rgba(255, 200, 90, ${a * 0.4})`);
+      rg.addColorStop(0, `rgba(255, 242, 205, ${a})`);
+      rg.addColorStop(0.45, `rgba(255, 200, 90, ${a * 0.45})`);
       rg.addColorStop(1, "rgba(255, 200, 90, 0)");
       ctx.fillStyle = rg;
       ctx.beginPath();
@@ -599,10 +661,10 @@ export class Scene {
     ctx.save();
     for (const im of this.impacts) {
       const k = im.age / im.dur;
-      const r = 6 + k * this.fishRadius * 0.9;
-      ctx.globalAlpha = (1 - k) * 0.8;
+      const r = 6 + k * (im.max || this.fishRadius * 0.9);
+      ctx.globalAlpha = (1 - k) * 0.85;
       ctx.strokeStyle = im.color;
-      ctx.lineWidth = 3 * (1 - k) + 0.5;
+      ctx.lineWidth = (im.shock ? 6 : 3) * (1 - k) + 0.5;
       ctx.beginPath();
       ctx.arc(im.x, im.y, r, 0, Math.PI * 2);
       ctx.stroke();
