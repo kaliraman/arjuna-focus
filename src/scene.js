@@ -26,9 +26,19 @@ export class Scene {
     this.impacts = [];       // expanding hit rings
     this.arrows = [];        // arrows in flight
     this.particles = [];     // impact sparks
+    this.glows = [];         // soft radial blooms (perfect strike)
+    this.petals = [];        // level-clear celebration
     this.ambientRings = [];
     this.shakeMag = 0;
     this.shakeT = 0;
+
+    // juice + accessibility
+    this.reduceMotion = false;
+    this.highContrast = false;
+    this._slowT = 0;         // remaining real-time of the slow-mo window
+    this._slowDur = 0.5;
+    this._ts = 1;            // current time scale (1 = normal speed)
+    this.bow = { drawing: false, power: 0 };
 
     this._eye = { x: 0, y: 0 };
     this._seedAmbient();
@@ -44,8 +54,14 @@ export class Scene {
     this.impacts = [];
     this.arrows = [];
     this.particles = [];
+    this.glows = [];
+    this.petals = [];
     this.shakeMag = 0;
     this.shakeT = 0;
+    this._slowT = 0;
+    this._ts = 1;
+    this.bow.drawing = false;
+    this.bow.power = 0;
   }
 
   resize(w, h) {
@@ -66,8 +82,15 @@ export class Scene {
 
   // ---- update ---------------------------------------------------------------
   update(dt) {
-    this.t += dt;
-    this.theta += this.cfg.motion * dt;
+    // Slow-mo envelope counts REAL time; the world advances at the scaled rate.
+    if (this._slowT > 0) this._slowT = Math.max(0, this._slowT - dt);
+    this._ts = this._timeScale();
+    const wdt = dt * this._ts; // world dt
+
+    if (this.bow.drawing) this.bow.power = Math.min(1, this.bow.power + dt * 2.2);
+
+    this.t += wdt;
+    this.theta += this.cfg.motion * wdt;
 
     const amp = this.cfg.ripple * 7;
     const rx = Math.sin(this.t * 3.1 + this.theta * 2) * amp;
@@ -77,17 +100,17 @@ export class Scene {
     this._eye.y = this.cy + Math.sin(this.theta) * this.orbitR + Math.sin(head) * this.fishRadius * 0.5 + ry;
 
     for (const r of this.ambientRings) {
-      r.r += r.speed * dt * (0.4 + this.cfg.ripple * 0.3);
+      r.r += r.speed * wdt * (0.4 + this.cfg.ripple * 0.3);
       if (r.r > 1.4) r.r = 0;
     }
 
     const targetCount = Math.round(this.cfg.distraction * 22);
     while (this.distractions.length < targetCount) this.distractions.push(this._spawn());
     for (const d of this.distractions) {
-      d.x += d.vx * dt;
-      d.y += d.vy * dt;
-      d.life -= dt;
-      d.rot += d.vr * dt;
+      d.x += d.vx * wdt;
+      d.y += d.vy * wdt;
+      d.life -= wdt;
+      d.rot += d.vr * wdt;
     }
     this.distractions = this.distractions.filter(
       (d) => d.life > 0 && d.x > -120 && d.x < this.w + 120 && d.y > -120 && d.y < this.h + 120
@@ -95,7 +118,7 @@ export class Scene {
 
     // Arrows in flight
     for (const a of this.arrows) {
-      a.age += dt;
+      a.age += wdt;
       const k = Math.min(1, a.age / a.dur);
       const e = easeInQuad(k);
       a.x = a.x0 + (a.tx - a.x0) * e;
@@ -109,20 +132,39 @@ export class Scene {
     }
     this.arrows = this.arrows.filter((a) => !a.landed);
 
-    // Particles
+    // Spark particles (gravity)
     for (const p of this.particles) {
-      p.age += dt;
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
-      p.vy += 220 * dt; // light gravity
+      p.age += wdt;
+      p.x += p.vx * wdt;
+      p.y += p.vy * wdt;
+      p.vy += 220 * wdt;
       p.vx *= 0.98;
     }
     this.particles = this.particles.filter((p) => p.age < p.life);
 
-    for (const im of this.impacts) im.age += dt;
+    // Level-clear petals drift upward (run on real time — outside gameplay)
+    for (const p of this.petals) {
+      p.age += dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.rot += p.vr * dt;
+    }
+    this.petals = this.petals.filter((p) => p.age < p.life);
+
+    for (const g of this.glows) g.age += wdt;
+    this.glows = this.glows.filter((g) => g.age < g.dur);
+
+    for (const im of this.impacts) im.age += wdt;
     this.impacts = this.impacts.filter((im) => im.age < im.dur);
 
     if (this.shakeT > 0) this.shakeT -= dt;
+  }
+
+  _timeScale() {
+    if (this._slowT <= 0) return 1;
+    const k = this._slowT / this._slowDur; // 1 at start → 0 at end
+    if (k > 0.4) return 0.15;              // held slow right after impact
+    return 0.15 + 0.85 * (1 - k / 0.4);    // ease back to normal over the tail
   }
 
   _spawn() {
@@ -171,7 +213,8 @@ export class Scene {
   }
 
   burst(x, y, color, count = 14, power = 1) {
-    for (let i = 0; i < count; i++) {
+    const n = this.reduceMotion ? Math.ceil(count * 0.35) : count;
+    for (let i = 0; i < n; i++) {
       const ang = Math.random() * Math.PI * 2;
       const spd = (50 + Math.random() * 170) * power;
       this.particles.push({
@@ -186,7 +229,64 @@ export class Scene {
     }
   }
 
-  shake(mag) { this.shakeMag = mag; this.shakeT = 0.32; }
+  shake(mag) {
+    if (this.reduceMotion) return;
+    this.shakeMag = mag;
+    this.shakeT = 0.32;
+  }
+
+  // Slow-mo beat for the perfect strike — the savor moment.
+  slowmo(dur = 0.5) {
+    if (this.reduceMotion) return;
+    this._slowDur = dur;
+    this._slowT = dur;
+  }
+
+  // Golden bloom + rising gold motes from the pupil on a perfect strike.
+  bloom(x, y) {
+    this.glows.push({ x, y, age: 0, dur: 0.75 });
+    const n = this.reduceMotion ? 8 : 22;
+    for (let i = 0; i < n; i++) {
+      const ang = -Math.PI / 2 + (Math.random() - 0.5) * 1.8;
+      const spd = 40 + Math.random() * 120;
+      this.particles.push({
+        x, y,
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd,
+        age: 0,
+        life: 0.6 + Math.random() * 0.6,
+        size: 1.5 + Math.random() * 2.8,
+        color: Math.random() < 0.5 ? "#ffe8a8" : "#ffcf6b",
+      });
+    }
+  }
+
+  // Soft rising petals for a level clear.
+  celebrate() {
+    const cols = ["#ffcf6b", "#f4a6c0", "#ffe8a8", "#d8b4f0"];
+    const n = this.reduceMotion ? 10 : 26;
+    for (let i = 0; i < n; i++) {
+      this.petals.push({
+        x: this.cx + (Math.random() - 0.5) * this.w * 0.7,
+        y: this.h * (0.5 + Math.random() * 0.5),
+        vx: (Math.random() - 0.5) * 30,
+        vy: -(30 + Math.random() * 70),
+        rot: Math.random() * Math.PI,
+        vr: (Math.random() - 0.5) * 2,
+        size: 6 + Math.random() * 8,
+        age: 0,
+        life: 1.8 + Math.random() * 1.2,
+        color: cols[(Math.random() * cols.length) | 0],
+      });
+    }
+  }
+
+  bowStart() { this.bow.drawing = true; this.bow.power = 0; }
+  bowRelease() {
+    this.bow.drawing = false;
+    this.bow.power = 0;
+    this.shake(2); // the snap
+  }
 
   // ---- render ---------------------------------------------------------------
   render(ctx) {
@@ -195,9 +295,14 @@ export class Scene {
     ctx.save();
     if (this.shakeT > 0) {
       const k = this.shakeT / 0.32;
-      const ox = (Math.random() - 0.5) * this.shakeMag * k;
-      const oy = (Math.random() - 0.5) * this.shakeMag * k;
-      ctx.translate(ox, oy);
+      ctx.translate((Math.random() - 0.5) * this.shakeMag * k, (Math.random() - 0.5) * this.shakeMag * k);
+    }
+    // Camera push-in toward the eye during the slow-mo beat.
+    if (this._ts < 0.999) {
+      const zoom = 1 + (1 - this._ts) * 0.05;
+      ctx.translate(this._eye.x, this._eye.y);
+      ctx.scale(zoom, zoom);
+      ctx.translate(-this._eye.x, -this._eye.y);
     }
 
     const bg = ctx.createRadialGradient(cx, cy, 10, cx, cy, Math.max(w, h) * 0.7);
@@ -205,7 +310,7 @@ export class Scene {
     bg.addColorStop(0.6, "#0c2734");
     bg.addColorStop(1, "#06161e");
     ctx.fillStyle = bg;
-    ctx.fillRect(-40, -40, w + 80, h + 80);
+    ctx.fillRect(-w * 0.15 - 40, -h * 0.15 - 40, w * 1.3 + 80, h * 1.3 + 80);
 
     this._drawCaustics(ctx);
     this._drawAmbient(ctx);
@@ -213,8 +318,63 @@ export class Scene {
     this._drawDistractions(ctx);
     this._drawArrows(ctx);
     this._drawImpacts(ctx);
+    this._drawGlows(ctx);
     this._drawParticles(ctx);
+    this._drawPetals(ctx);
+    this._drawBow(ctx);
     this._vignette(ctx);
+    ctx.restore();
+  }
+
+  _drawGlows(ctx) {
+    if (!this.glows.length) return;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (const g of this.glows) {
+      const k = g.age / g.dur;
+      const r = this.fishRadius * (0.4 + k * 2.4);
+      const a = (1 - k) * 0.6;
+      const rg = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, r);
+      rg.addColorStop(0, `rgba(255, 224, 150, ${a})`);
+      rg.addColorStop(0.5, `rgba(255, 200, 90, ${a * 0.4})`);
+      rg.addColorStop(1, "rgba(255, 200, 90, 0)");
+      ctx.fillStyle = rg;
+      ctx.beginPath();
+      ctx.arc(g.x, g.y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  _drawPetals(ctx) {
+    for (const p of this.petals) {
+      const k = p.age / p.life;
+      ctx.save();
+      ctx.globalAlpha = (1 - k) * 0.9;
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, p.size, p.size * 0.45, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  _drawBow(ctx) {
+    const drawing = this.bow.drawing;
+    const p = drawing ? this.bow.power : 0;
+    if (!drawing) return;
+    const bx = this.cx, by = this.h - 6;
+    ctx.save();
+    ctx.globalAlpha = 0.2 + 0.3 * p;
+    ctx.strokeStyle = "rgba(225, 210, 175, 0.9)";
+    ctx.lineWidth = 2;
+    const pull = 6 + p * 20;
+    ctx.beginPath();
+    ctx.moveTo(bx - 46, by);
+    ctx.quadraticCurveTo(bx, by + pull, bx + 46, by);
+    ctx.stroke();
     ctx.restore();
   }
 
@@ -325,6 +485,19 @@ export class Scene {
       ctx.strokeStyle = "#ffcf6b";
       ctx.lineWidth = 2;
       ctx.stroke();
+    }
+
+    if (this.highContrast) {
+      ctx.globalAlpha = 1;
+      ctx.beginPath();
+      ctx.arc(x, y, irisR * 1.12, 0, Math.PI * 2);
+      ctx.lineWidth = Math.max(2.5, R * 0.06);
+      ctx.strokeStyle = "#ffffff";
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(x, y, pupilR * 1.05, 0, Math.PI * 2);
+      ctx.fillStyle = "#000000";
+      ctx.fill();
     }
     ctx.restore();
   }

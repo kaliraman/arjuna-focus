@@ -3,9 +3,10 @@
 // game.js can build the Focus meter (steadiness = focus).
 
 export class Input {
-  constructor(canvas, { onFire }) {
+  constructor(canvas, { onFire, onDraw }) {
     this.canvas = canvas;
     this.onFire = onFire;
+    this.onDraw = onDraw;
     this.x = 0;
     this.y = 0;
     this.has = false;       // do we have a real pointer position yet
@@ -58,6 +59,7 @@ export class Input {
       try { c.setPointerCapture?.(e.pointerId); } catch { /* non-fatal */ }
       move(e);
       this._down = { x: this.x, y: this.y, t: performance.now() };
+      this.onDraw?.({ x: this.x, y: this.y });
     });
 
     c.addEventListener("pointerup", (e) => {

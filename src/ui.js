@@ -17,6 +17,7 @@ export class UI {
     this.objective = $("objective");
     this.levelIntro = $("level-intro");
     this.toast = $("toast");
+    this.wordBloomEl = $("word-bloom");
     this.el = {
       level: $("hud-level"),
       score: $("hud-score"),
@@ -24,12 +25,15 @@ export class UI {
       introLabel: $("level-intro-label"),
       introName: $("level-intro-name"),
       sound: $("btn-menu-sound"),
+      motion: $("btn-menu-motion"),
+      contrast: $("btn-menu-contrast"),
       levelTitle: $("level-title"),
       levelSummary: $("level-summary"),
       finaleSub: $("finale-sub"),
     };
     this._toastTimer = null;
     this._introTimer = null;
+    this._wordTimer = null;
   }
 
   show(name) {
@@ -91,4 +95,17 @@ export class UI {
   }
 
   setMuted(muted) { this.el.sound.textContent = muted ? "Sound: off" : "Sound: on"; }
+  setReduceMotion(on) { this.el.motion.textContent = on ? "Motion: reduced" : "Motion: full"; }
+  setContrast(on) { this.el.contrast.textContent = on ? "High contrast: on" : "High contrast: off"; }
+
+  // A Sanskrit/Hindi word blooms and fades center-screen on a strike.
+  wordBloom(text) {
+    const el = this.wordBloomEl;
+    el.textContent = text;
+    el.classList.remove("hidden", "show");
+    void el.offsetWidth;
+    el.classList.add("show");
+    clearTimeout(this._wordTimer);
+    this._wordTimer = setTimeout(() => el.classList.add("hidden"), 900);
+  }
 }

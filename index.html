@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0b1f2a" />
   <title>Eye of the Fish</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Devanagari+Hindi&display=swap" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -32,6 +35,9 @@
 
     <!-- Shot feedback toast -->
     <div id="toast" class="toast hidden"></div>
+
+    <!-- Word bloom (Sanskrit/Hindi praise on a strike) -->
+    <div id="word-bloom" class="word-bloom hidden"></div>
 
     <!-- Title screen -->
     <section id="screen-title" class="screen">
@@ -85,6 +91,8 @@
           <button id="btn-menu-how" class="btn-link">How to play</button>
           <button id="btn-menu-legend" class="btn-link">The legend</button>
           <button id="btn-menu-sound" class="btn-link">Sound: on</button>
+          <button id="btn-menu-motion" class="btn-link">Motion: full</button>
+          <button id="btn-menu-contrast" class="btn-link">High contrast: off</button>
           <button id="btn-menu-quit" class="btn-link">Main menu</button>
         </div>
       </div>
