@@ -14,19 +14,14 @@
     <!-- HUD (visible while playing) -->
     <div id="hud" class="hud hidden">
       <div class="hud-item"><span class="hud-label">Level</span><span id="hud-level">1</span></div>
-      <div class="hud-item"><span class="hud-label">Arrows</span><span id="hud-arrows" class="hud-arrows"></span></div>
+      <div class="hud-item"><span class="hud-label">Score</span><span id="hud-score">0</span></div>
       <button id="menu-btn" class="icon-btn" title="Menu" aria-label="Open menu">☰</button>
     </div>
 
-    <!-- Goal bar (fills toward the star thresholds) -->
-    <div id="goal-wrap" class="goal-wrap hidden">
-      <div class="goal-label">Goal</div>
-      <div class="goal-track">
-        <div id="goal-fill" class="goal-fill"></div>
-        <span class="goal-notch n1"></span>
-        <span class="goal-notch n2"></span>
-        <span class="goal-notch n3"></span>
-      </div>
+    <!-- Objective: strike the eye N times to advance -->
+    <div id="objective" class="objective hidden">
+      <span class="objective-label">Strike the eye</span>
+      <span id="objective-pips" class="objective-pips"></span>
     </div>
 
     <!-- Level intro card -->
@@ -34,9 +29,6 @@
       <div id="level-intro-label" class="level-intro-label"></div>
       <div id="level-intro-name" class="level-intro-name"></div>
     </div>
-
-    <!-- Combo badge (appears on a streak) -->
-    <div id="combo-badge" class="combo-badge hidden">×2</div>
 
     <!-- Shot feedback toast -->
     <div id="toast" class="toast hidden"></div>
@@ -102,19 +94,8 @@
     <section id="screen-level" class="screen hidden">
       <div class="panel">
         <h2 id="level-title">Level Cleared</h2>
-        <div id="level-stars" class="stars"></div>
         <p id="level-summary" class="story-sub"></p>
         <button id="btn-next" class="btn btn-primary">Next level</button>
-      </div>
-    </section>
-
-    <!-- Out of arrows (retry) -->
-    <section id="screen-fail" class="screen hidden">
-      <div class="panel">
-        <h2>Out of arrows</h2>
-        <p id="fail-sub" class="over-sub"></p>
-        <button id="btn-retry" class="btn btn-primary">Try again</button>
-        <button id="btn-fail-quit" class="btn-link">Main menu</button>
       </div>
     </section>
 
@@ -122,7 +103,6 @@
     <section id="screen-finale" class="screen hidden">
       <div class="panel">
         <h2>You mastered the eye</h2>
-        <div id="finale-stars" class="stars"></div>
         <p id="finale-sub" class="over-sub"></p>
         <button id="btn-finale-again" class="btn btn-primary">Play again</button>
         <div class="over-actions">
