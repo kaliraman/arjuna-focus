@@ -16,24 +16,20 @@ export class UI {
     };
     this.hud = $("hud");
     this.objective = $("objective");
-    this.levelIntro = $("level-intro");
+    this.levelName = $("level-name");
     this.toast = $("toast");
     this.wordBloomEl = $("word-bloom");
-    this.nextBar = $("next-bar");
+    this.nextArrow = $("btn-next");
     this.el = {
       level: $("hud-level"),
       score: $("hud-score"),
       objectivePips: $("objective-pips"),
-      introLabel: $("level-intro-label"),
-      introName: $("level-intro-name"),
       sound: $("btn-menu-sound"),
       motion: $("btn-menu-motion"),
       contrast: $("btn-menu-contrast"),
-      nextSummary: $("next-summary"),
       finaleSub: $("finale-sub"),
     };
     this._toastTimer = null;
-    this._introTimer = null;
     this._wordTimer = null;
   }
 
@@ -46,9 +42,12 @@ export class UI {
 
   setPlaying(on) {
     this.hud.classList.toggle("hidden", !on);
+    this.levelName.classList.toggle("hidden", !on);
+    document.body.classList.toggle("playing", on); // hides the brand title in-game
+
     if (!on) {
       this.objective.classList.add("hidden");
-      this.nextBar.classList.add("hidden");
+      this.nextArrow.classList.add("hidden");
     }
   }
 
@@ -75,26 +74,22 @@ export class UI {
     this._toastTimer = setTimeout(() => el.classList.add("hidden"), 900);
   }
 
-  showLevelIntro({ label, name, calibration }) {
-    this.el.introLabel.textContent = calibration ? t("warmup") : `${t("hud_level")} ${label}`;
-    this.el.introName.textContent = calibration ? t("findEye") : name;
-    const c = this.levelIntro;
-    c.classList.remove("hidden", "show");
-    void c.offsetWidth;
-    c.classList.add("show");
-    clearTimeout(this._introTimer);
-    this._introTimer = setTimeout(() => c.classList.add("hidden"), 1900);
+  // Persistent level name, top-center (with a small entrance animation).
+  setLevelName(name) {
+    const el = this.levelName;
+    el.textContent = name;
+    el.classList.remove("hidden", "show");
+    void el.offsetWidth;
+    el.classList.add("show");
   }
 
-  // Non-blocking level clear: a bottom bar; the scene + lotus stay visible.
-  showCleared({ total, calibration }) {
+  // Non-blocking level clear: the scene + lotus stay visible; a pulsing arrow
+  // at the right edge advances.
+  showCleared() {
     this.objective.classList.add("hidden");
-    this.el.nextSummary.textContent = calibration
-      ? t("warmupDone")
-      : `${t("levelComplete")} · ${t("hud_score")} ${total.toLocaleString()}`;
-    this.nextBar.classList.remove("hidden");
+    this.nextArrow.classList.remove("hidden");
   }
-  hideCleared() { this.nextBar.classList.add("hidden"); }
+  hideCleared() { this.nextArrow.classList.add("hidden"); }
 
   showFinale({ total }) {
     this.el.finaleSub.textContent = `${t("finalScore")} ${total.toLocaleString()}`;

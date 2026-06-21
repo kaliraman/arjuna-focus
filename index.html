@@ -23,23 +23,20 @@
     <!-- Pause / menu (top-right) -->
     <button id="menu-btn" class="icon-btn menu-corner" title="Menu" aria-label="Open menu">☰</button>
 
-    <!-- HUD (visible while playing) -->
+    <!-- HUD (top-left): level, score, and the objective beneath -->
     <div id="hud" class="hud hidden">
-      <div class="hud-item"><span class="hud-label" data-i18n="hud_level">Level</span><span id="hud-level">1</span></div>
-      <div class="hud-item"><span class="hud-label" data-i18n="hud_score">Score</span><span id="hud-score">0</span></div>
+      <div class="hud-row">
+        <div class="hud-item"><span class="hud-label" data-i18n="hud_level">Level</span><span id="hud-level">1</span></div>
+        <div class="hud-item"><span class="hud-label" data-i18n="hud_score">Score</span><span id="hud-score">0</span></div>
+      </div>
+      <div id="objective" class="objective-hud">
+        <span class="objective-label" data-i18n="strikeEye">Strike the eye</span>
+        <span id="objective-pips" class="objective-pips"></span>
+      </div>
     </div>
 
-    <!-- Objective: strike the eye N times to advance -->
-    <div id="objective" class="objective hidden">
-      <span class="objective-label" data-i18n="strikeEye">Strike the eye</span>
-      <span id="objective-pips" class="objective-pips"></span>
-    </div>
-
-    <!-- Level intro card -->
-    <div id="level-intro" class="level-intro hidden">
-      <div id="level-intro-label" class="level-intro-label"></div>
-      <div id="level-intro-name" class="level-intro-name"></div>
-    </div>
+    <!-- Current level name (top-center) -->
+    <div id="level-name" class="level-name hidden"></div>
 
     <!-- Shot feedback toast -->
     <div id="toast" class="toast hidden"></div>
@@ -101,11 +98,8 @@
       </div>
     </section>
 
-    <!-- Level cleared — non-blocking bottom bar (the scene stays visible) -->
-    <div id="next-bar" class="next-bar hidden">
-      <span id="next-summary" class="next-summary"></span>
-      <button id="btn-next" class="btn btn-primary" data-i18n="next">Next</button>
-    </div>
+    <!-- Level cleared — a pulsing arrow at the right edge (non-blocking) -->
+    <button id="btn-next" class="next-arrow hidden" aria-label="Next">➜</button>
 
     <!-- Finale (cleared the final challenge level) -->
     <section id="screen-finale" class="screen hidden">

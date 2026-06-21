@@ -44,7 +44,7 @@ export class Game {
     this.ui.setPlaying(true);
     const label = this._levelLabel();
     this.ui.setHud({ levelLabel: label, score: this.score, eyeHits: 0, eyeGoal: cfg.eyeHits });
-    this.ui.showLevelIntro({ label, name: this._levelName(cfg), calibration: !!cfg.calibration });
+    this.ui.setLevelName(cfg.calibration ? t("warmup") : this._levelName(cfg));
     this.input.setActive(true);
   }
 
@@ -133,8 +133,8 @@ export class Game {
           this.ui.showFinale({ total: this.score });
         }, 1800);
       } else {
-        // Non-blocking: keep the pool + lotus on screen, slide up a Next bar.
-        this.ui.showCleared({ total: this.score, calibration: !!this.cfg.calibration });
+        // Non-blocking: keep the pool + lotus on screen; a Next arrow appears.
+        this.ui.showCleared();
       }
     }
   }

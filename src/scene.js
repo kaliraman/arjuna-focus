@@ -8,6 +8,15 @@
 
 import { easeInQuad } from "./util.js";
 
+// Fallback palette (used on the title screen before a level sets one).
+const DEFAULT_PALETTE = { bg: ["#10384a", "#0c2734", "#06161e"], fishA: "#285e74", fishB: "#5aa0b4", vig: "rgba(0,0,0,0.45)" };
+
+function hexA(hex, a) {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
 export class Scene {
   constructor() {
     this.t = 0;              // seconds elapsed (level clock)
@@ -184,7 +193,7 @@ export class Scene {
   }
 
   _spawn() {
-    const kinds = ["cloud", "bird", "leaf", "glare"];
+    const kinds = this.cfg.kinds || ["cloud", "bird", "leaf", "glare"];
     const kind = kinds[(this.rng() * kinds.length) | 0];
     const edge = this.rng() < 0.5 ? 0 : 1;
     const x = edge ? -80 : this.w + 80;
@@ -193,12 +202,12 @@ export class Scene {
       kind,
       x,
       y: this.rng() * this.h,
-      vx: dir * (20 + this.rng() * 50),
-      vy: (this.rng() - 0.5) * 26,
+      vx: dir * (55 + this.rng() * 120),   // livelier drift
+      vy: (this.rng() - 0.5) * 50,
       rot: this.rng() * Math.PI,
-      vr: (this.rng() - 0.5) * 1.2,
+      vr: (this.rng() - 0.5) * 1.6,
       size: 18 + this.rng() * 42,
-      life: 8 + this.rng() * 8,
+      life: 6 + this.rng() * 6,
     };
   }
 
@@ -329,10 +338,11 @@ export class Scene {
       ctx.translate(-this._eye.x, -this._eye.y);
     }
 
+    const P = this.cfg.palette || DEFAULT_PALETTE;
     const bg = ctx.createRadialGradient(cx, cy, 10, cx, cy, Math.max(w, h) * 0.7);
-    bg.addColorStop(0, "#10384a");
-    bg.addColorStop(0.6, "#0c2734");
-    bg.addColorStop(1, "#06161e");
+    bg.addColorStop(0, P.bg[0]);
+    bg.addColorStop(0.6, P.bg[1]);
+    bg.addColorStop(1, P.bg[2]);
     ctx.fillStyle = bg;
     ctx.fillRect(-w * 0.15 - 40, -h * 0.15 - 40, w * 1.3 + 80, h * 1.3 + 80);
 
@@ -530,6 +540,7 @@ export class Scene {
     ctx.rotate(facing);
 
     const bodyAlpha = 0.85 * (0.35 + 0.65 * clarity);
+    const P = this.cfg.palette || DEFAULT_PALETTE;
 
     ctx.beginPath();
     ctx.moveTo(-R * 0.9, 0);
@@ -537,14 +548,14 @@ export class Scene {
     ctx.lineTo(-R * 1.3, 0);
     ctx.lineTo(-R * 1.5, R * 0.5);
     ctx.closePath();
-    ctx.fillStyle = `rgba(60, 120, 140, ${bodyAlpha})`;
+    ctx.fillStyle = hexA(P.fishA, bodyAlpha * 0.85);
     ctx.fill();
 
     ctx.beginPath();
     ctx.ellipse(0, 0, R, R * 0.5, 0, 0, Math.PI * 2);
     const grad = ctx.createLinearGradient(-R, 0, R, 0);
-    grad.addColorStop(0, `rgba(40, 96, 116, ${bodyAlpha})`);
-    grad.addColorStop(1, `rgba(90, 160, 180, ${bodyAlpha})`);
+    grad.addColorStop(0, hexA(P.fishA, bodyAlpha));
+    grad.addColorStop(1, hexA(P.fishB, bodyAlpha));
     ctx.fillStyle = grad;
     ctx.fill();
     ctx.restore();
@@ -729,9 +740,10 @@ export class Scene {
 
   _vignette(ctx) {
     const { w, h } = this;
+    const P = this.cfg.palette || DEFAULT_PALETTE;
     const v = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.max(w, h) * 0.75);
     v.addColorStop(0, "rgba(0,0,0,0)");
-    v.addColorStop(1, "rgba(0,0,0,0.45)");
+    v.addColorStop(1, P.vig);
     ctx.fillStyle = v;
     ctx.fillRect(0, 0, w, h);
   }
