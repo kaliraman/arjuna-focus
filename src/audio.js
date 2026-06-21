@@ -31,6 +31,31 @@ function blip({ freq = 440, type = "sine", dur = 0.12, gain = 0.18, slideTo = nu
   osc.stop(t0 + dur + 0.02);
 }
 
+// A resonant struck-bell tone (stacked partials, long decay) for the payoff.
+// Placeholder for a real temple-bell / conch sample, to be curated for approval.
+function bell({ freq = 528, dur = 0.9, gain = 0.22 }) {
+  if (muted) return;
+  const ac = ensure();
+  if (!ac) return;
+  const t0 = ac.currentTime;
+  const partials = [[1, 1], [2.0, 0.5], [3.0, 0.28], [4.2, 0.16]];
+  const master = ac.createGain();
+  master.gain.setValueAtTime(gain, t0);
+  master.connect(ac.destination);
+  for (const [mult, amp] of partials) {
+    const osc = ac.createOscillator();
+    const g = ac.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(freq * mult, t0);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(amp, t0 + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur * (0.55 + 0.45 / mult));
+    osc.connect(g).connect(master);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.05);
+  }
+}
+
 export const Audio = {
   // Call once on a user gesture to unlock the context.
   unlock() { ensure(); },
@@ -38,13 +63,14 @@ export const Audio = {
   toggleMute() { muted = !muted; return muted; },
   isMuted() { return muted; },
 
-  twang() { blip({ freq: 320, type: "triangle", dur: 0.16, slideTo: 140, gain: 0.16 }); },
-  bullseye() {
-    blip({ freq: 660, type: "sine", dur: 0.14, gain: 0.2 });
-    setTimeout(() => blip({ freq: 990, type: "sine", dur: 0.18, gain: 0.18 }), 90);
+  twang() { blip({ freq: 300, type: "triangle", dur: 0.14, slideTo: 150, gain: 0.14 }); },
+  bullseye() { bell({ freq: 528, dur: 1.0, gain: 0.24 }); },
+  hit() {
+    blip({ freq: 620, type: "sine", dur: 0.16, gain: 0.14 });
+    setTimeout(() => blip({ freq: 930, type: "sine", dur: 0.16, gain: 0.07 }), 70);
   },
-  hit() { blip({ freq: 520, type: "sine", dur: 0.14, gain: 0.16 }); },
-  miss() { blip({ freq: 150, type: "sawtooth", dur: 0.22, slideTo: 80, gain: 0.14 }); },
+  // Gentle, never a buzzer — the brief's "soft landing" miss.
+  softMiss() { blip({ freq: 240, type: "sine", dur: 0.2, slideTo: 150, gain: 0.1 }); },
   levelUp() {
     [523, 659, 784, 1047].forEach((f, i) =>
       setTimeout(() => blip({ freq: f, type: "sine", dur: 0.16, gain: 0.16 }), i * 100)

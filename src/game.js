@@ -74,45 +74,64 @@ export class Game {
 
     this.score += result.points;
 
-    // Visuals + sound, scaled by how good the hit was.
+    // Feedback, scaled by how good the hit was.
     if (result.ring.key === "bullseye") {
-      this.scene.addImpact(pos.x, pos.y, result.ring.color);
+      // THE payoff: slow-mo savor beat, golden bloom, a word blooms.
+      this.scene.slowmo(0.5);
+      this.scene.bloom(eye.x, eye.y);
       this.scene.addImpact(eye.x, eye.y, result.ring.color);
-      this.scene.burst(eye.x, eye.y, result.ring.color, 22, 1.3);
-      this.scene.shake(12);
+      this.scene.shake(10);
       this.audio.bullseye();
+      this.ui.wordBloom("एकाग्रता");
+      this.ui.toastMsg(`${result.ring.label} +${result.points}`, result.ring.color);
     } else if (result.eyeHit) {
       this.scene.addImpact(pos.x, pos.y, result.ring.color);
       this.scene.burst(pos.x, pos.y, result.ring.color, 14, 1.0);
-      this.scene.shake(7);
+      this.scene.shake(6);
       this.audio.hit();
+      this.ui.wordBloom("साधु");
+      this.ui.toastMsg(`${result.ring.label} +${result.points}`, result.ring.color);
     } else if (result.points > 0) {
       this.scene.addImpact(pos.x, pos.y, result.ring.color);
       this.scene.burst(pos.x, pos.y, result.ring.color, 8, 0.6);
       this.scene.shake(3);
       this.audio.hit();
+      this.ui.toastMsg(`${result.ring.label} +${result.points}`, result.ring.color);
     } else {
-      this.scene.burst(pos.x, pos.y, "#6699aa", 6, 0.5);
-      this.audio.miss();
+      // Soft landing: gentle splash, mellow tone, no shake, mostly quiet.
+      this.scene.addImpact(pos.x, pos.y, "#8fb8c8");
+      this.scene.burst(pos.x, pos.y, "#9fc6d6", 5, 0.4);
+      this.audio.softMiss();
+      const line = this._missLine();
+      if (line) this.ui.toastMsg(line, "#9fb6bd");
     }
-
-    if (result.points > 0) this.ui.toastMsg(`${result.ring.label} +${result.points}`, result.ring.color);
-    else this.ui.toastMsg("Missed — lead the eye", "#ff7a7a");
 
     if (result.eyeHit) this.eyeHits += 1;
     this.ui.setHud({ score: this.score, eyeHits: this.eyeHits, eyeGoal: this.cfg.eyeHits });
 
-    // Advance once the eye has been struck enough times.
+    // Advance once the eye has been struck enough times — with a victory lap so
+    // the celebration petals animate before the screen appears.
     if (this.eyeHits >= this.cfg.eyeHits && !this._advancing) {
       this._advancing = true;
       this.input.setActive(false);
-      setTimeout(() => this._completeLevel(), 600);
+      this.scene.celebrate();
+      this.audio.levelUp();
+      setTimeout(() => this._completeLevel(), 1000);
     }
+  }
+
+  _missLine() {
+    if (Math.random() > 0.35) return null; // usually stay quiet
+    const lines = [
+      "So close — lead it a breath further.",
+      "Breathe. See only the eye.",
+      "The eye keeps moving — aim ahead.",
+    ];
+    return lines[(Math.random() * lines.length) | 0];
   }
 
   _completeLevel() {
     this.ui.setPlaying(false);
-    this.audio.levelUp();
     if (!this.cfg.calibration && this.levelIndex === CHALLENGE_COUNT) {
       this.state = "finale";
       this.ui.showFinale({ total: this.score });

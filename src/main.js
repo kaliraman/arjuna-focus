@@ -29,8 +29,9 @@ window.addEventListener("resize", resize);
 resize();
 
 const input = new Input(canvas, {
+  onDraw: () => { Audio.unlock(); scene.bowStart(); },
   onFire: (pos) => {
-    Audio.unlock();
+    scene.bowRelease();
     Audio.twang();
     game.fire(pos);
   },
@@ -106,6 +107,8 @@ on("btn-menu-how", () => openInfo("how", "menu"));
 on("btn-menu-legend", () => openInfo("legend", "menu"));
 on("btn-menu-quit", () => game.toTitle());
 on("btn-menu-sound", () => ui.setMuted(Audio.toggleMute()));
+on("btn-menu-motion", () => { scene.reduceMotion = !scene.reduceMotion; ui.setReduceMotion(scene.reduceMotion); });
+on("btn-menu-contrast", () => { scene.highContrast = !scene.highContrast; ui.setContrast(scene.highContrast); });
 
 // Start on the title screen.
 ui.show("title");

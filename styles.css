@@ -510,3 +510,26 @@ h2 {
   border-color: var(--accent);
   box-shadow: 0 0 8px rgba(255, 207, 107, 0.6);
 }
+
+/* Word bloom — Sanskrit/Hindi praise on a strike */
+.word-bloom {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 35;
+  font-family: "Tiro Devanagari Hindi", var(--font);
+  font-size: clamp(40px, 13vw, 92px);
+  color: var(--accent);
+  text-shadow: 0 4px 32px rgba(255, 207, 107, 0.55);
+  pointer-events: none;
+  opacity: 0;
+  white-space: nowrap;
+}
+.word-bloom.show { animation: wordbloom 0.9s ease forwards; }
+@keyframes wordbloom {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+  18% { opacity: 1; transform: translate(-50%, -52%) scale(1.06); }
+  60% { opacity: 1; transform: translate(-50%, -52%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -56%) scale(1); }
+}
