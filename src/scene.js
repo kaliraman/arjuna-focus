@@ -27,7 +27,8 @@ export class Scene {
     this.arrows = [];        // arrows in flight
     this.particles = [];     // impact sparks
     this.glows = [];         // soft radial blooms (perfect strike)
-    this.petals = [];        // level-clear celebration
+    this.petals = [];        // (legacy) generic petals — unused, lotus replaces it
+    this.lotus = null;       // blooming lotus on a level clear
     this.ambientRings = [];
     this.shakeMag = 0;
     this.shakeT = 0;
@@ -61,6 +62,7 @@ export class Scene {
     this.particles = [];
     this.glows = [];
     this.petals = [];
+    this.lotus = null;
     this.shakeMag = 0;
     this.shakeT = 0;
     this._slowT = 0;
@@ -158,6 +160,11 @@ export class Scene {
       p.rot += p.vr * dt;
     }
     this.petals = this.petals.filter((p) => p.age < p.life);
+
+    if (this.lotus) {
+      this.lotus.age += dt; // real time — it blooms outside gameplay
+      if (this.lotus.age > this.lotus.dur) this.lotus = null;
+    }
 
     for (const g of this.glows) g.age += wdt;
     this.glows = this.glows.filter((g) => g.age < g.dur);
@@ -292,24 +299,9 @@ export class Scene {
     if (strength >= 0.9) this.slowmo(0.7, 0.05); // freeze only for dead-center
   }
 
-  // Soft rising petals for a level clear.
+  // A lotus blooms open at the centre on a level clear.
   celebrate() {
-    const cols = ["#ffcf6b", "#f4a6c0", "#ffe8a8", "#d8b4f0"];
-    const n = this.reduceMotion ? 10 : 26;
-    for (let i = 0; i < n; i++) {
-      this.petals.push({
-        x: this.cx + (Math.random() - 0.5) * this.w * 0.7,
-        y: this.h * (0.5 + Math.random() * 0.5),
-        vx: (Math.random() - 0.5) * 30,
-        vy: -(30 + Math.random() * 70),
-        rot: Math.random() * Math.PI,
-        vr: (Math.random() - 0.5) * 2,
-        size: 6 + Math.random() * 8,
-        age: 0,
-        life: 1.8 + Math.random() * 1.2,
-        color: cols[(Math.random() * cols.length) | 0],
-      });
-    }
+    this.lotus = { age: 0, dur: 2.8 };
   }
 
   bowStart() { this.bow.drawing = true; this.bow.power = 0; }
@@ -353,6 +345,7 @@ export class Scene {
     this._drawGlows(ctx);
     this._drawParticles(ctx);
     this._drawPetals(ctx);
+    this._drawLotus(ctx);
     this._drawBow(ctx);
     this._vignette(ctx);
     ctx.restore();
@@ -421,6 +414,55 @@ export class Scene {
       ctx.fill();
       ctx.restore();
     }
+  }
+
+  // A sacred lotus (padma): layered rings of pointed petals opening from a
+  // golden centre. Pink/white outer petals, gold inner, drawn procedurally.
+  _drawLotus(ctx) {
+    if (!this.lotus) return;
+    const age = this.lotus.age, dur = this.lotus.dur;
+    const open = Math.min(1, age / 0.8);                    // opens over 0.8s
+    const ease = 1 - Math.pow(1 - open, 3);                 // easeOutCubic
+    const fade = age < dur * 0.7 ? 1 : Math.max(0, 1 - (age - dur * 0.7) / (dur * 0.3));
+    const base = Math.min(this.w, this.h) * 0.2;
+    const rings = [
+      { count: 8, len: 1.0, wid: 0.34, col: "#f7c9da", off: 0 },
+      { count: 8, len: 0.82, wid: 0.3, col: "#fde3ee", off: Math.PI / 8 },
+      { count: 7, len: 0.6, wid: 0.28, col: "#ffd98a", off: Math.PI / 7 },
+    ];
+    ctx.save();
+    ctx.translate(this.cx, this.cy);
+    ctx.globalAlpha = fade;
+    for (const ring of rings) {
+      for (let i = 0; i < ring.count; i++) {
+        const a = ring.off + (i / ring.count) * Math.PI * 2;
+        ctx.save();
+        ctx.rotate(a);
+        const len = base * ring.len * (0.3 + 0.7 * ease);
+        const wid = base * ring.wid * (0.45 + 0.55 * ease);
+        ctx.beginPath();
+        ctx.moveTo(0, -len * 0.12);
+        ctx.quadraticCurveTo(wid, -len * 0.55, 0, -len);    // out to the tip
+        ctx.quadraticCurveTo(-wid, -len * 0.55, 0, -len * 0.12);
+        ctx.closePath();
+        ctx.fillStyle = ring.col;
+        ctx.fill();
+        ctx.strokeStyle = "rgba(180, 90, 120, 0.25)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+    // golden seed-pod centre
+    const cr = base * 0.2 * (0.4 + 0.6 * ease);
+    const cg = ctx.createRadialGradient(0, 0, 0, 0, 0, cr);
+    cg.addColorStop(0, "#ffe6a0");
+    cg.addColorStop(1, "#d98e3a");
+    ctx.fillStyle = cg;
+    ctx.beginPath();
+    ctx.arc(0, 0, cr, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
 
   _drawBow(ctx) {

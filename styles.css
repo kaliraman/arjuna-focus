@@ -9,7 +9,7 @@
   --bad: #ff7a7a;
   --panel: rgba(8, 22, 30, 0.86);
   --panel-edge: rgba(255, 207, 107, 0.25);
-  --font: "Trebuchet MS", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font: "Trebuchet MS", "Segoe UI", system-ui, -apple-system, "Tiro Devanagari Hindi", sans-serif;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -219,6 +219,43 @@ h2 {
   justify-content: center;
 }
 
+/* ---------- Brand + language (top-left, persistent) ---------- */
+.brand {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 10px);
+  left: 14px;
+  z-index: 23;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+.brand-title {
+  font-size: clamp(14px, 4vw, 17px);
+  font-weight: 500;
+  color: var(--accent);
+  letter-spacing: 0.4px;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
+}
+.lang-btn {
+  pointer-events: auto;
+  background: rgba(8, 22, 30, 0.72);
+  border: 1px solid rgba(255, 207, 107, 0.45);
+  border-radius: 8px;
+  width: 30px; height: 30px;
+  font-size: 15px;
+  color: var(--ink);
+  cursor: pointer;
+  line-height: 1;
+}
+.lang-btn:hover { border-color: var(--accent); }
+.menu-corner {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  right: 14px;
+  z-index: 23;
+}
+
 /* ---------- HUD ---------- */
 .hud {
   position: absolute;
@@ -226,7 +263,8 @@ h2 {
   display: flex;
   align-items: center;
   gap: clamp(12px, 4vw, 28px);
-  padding: max(12px, env(safe-area-inset-top)) 18px 12px;
+  padding: 0 18px 12px;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 48px);
   z-index: 20;
   background: linear-gradient(180deg, rgba(4,12,16,0.7), rgba(4,12,16,0));
   pointer-events: none;
@@ -250,13 +288,16 @@ h2 {
 .icon-btn {
   margin-left: auto;
   pointer-events: auto;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(8, 22, 30, 0.72);
+  border: 1px solid rgba(255, 207, 107, 0.45);
   border-radius: 10px;
-  width: 40px; height: 40px;
-  font-size: 18px;
+  width: 44px; height: 44px;
+  font-size: 20px;
+  color: var(--ink);
   cursor: pointer;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
 }
+.icon-btn:hover { background: rgba(8, 22, 30, 0.92); border-color: var(--accent); }
 
 /* ---------- Focus meter ---------- */
 .focus-wrap {
@@ -532,4 +573,32 @@ h2 {
   18% { opacity: 1; transform: translate(-50%, -52%) scale(1.06); }
   60% { opacity: 1; transform: translate(-50%, -52%) scale(1); }
   100% { opacity: 0; transform: translate(-50%, -56%) scale(1); }
+}
+
+/* Objective sits in the top-center row (brand left, menu right) */
+.objective { top: calc(env(safe-area-inset-top, 0px) + 14px); }
+
+/* Non-blocking "level cleared" bar — the scene stays visible behind it */
+.next-bar {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  z-index: 26;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px calc(env(safe-area-inset-bottom, 0px) + 18px);
+  background: linear-gradient(0deg, rgba(4, 12, 16, 0.92), rgba(4, 12, 16, 0));
+  pointer-events: none;
+  animation: nextbar-up 0.4s ease;
+}
+.next-bar .btn { pointer-events: auto; }
+.next-summary {
+  font-size: clamp(14px, 3.8vw, 16px);
+  color: var(--ink);
+  font-weight: 500;
+}
+@keyframes nextbar-up {
+  from { opacity: 0; transform: translateY(22px); }
+  to { opacity: 1; transform: translateY(0); }
 }
