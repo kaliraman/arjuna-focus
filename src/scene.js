@@ -8,6 +8,64 @@
 
 import { easeInQuad } from "./util.js";
 
+// Fallback palette (used on the title screen before a level sets one).
+const DEFAULT_PALETTE = { bg: ["#10384a", "#0c2734", "#06161e"], fishA: "#285e74", fishB: "#5aa0b4", vig: "rgba(0,0,0,0.45)" };
+
+function hexA(hex, a) {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
+// A different flower blooms at each level's clear (same flat, procedural style).
+//   shape  : petal silhouette — "pointed" | "oval" | "slim" | "broad"
+//   rings  : layered petal rings (count, len, wid as fractions of base, colour)
+//   center : [inner, outer] radial-gradient for the seed-pod
+//   stamen : optional protruding pistil (hibiscus)
+//   arrow  : the colour of the "advance" chevron for this level
+const FLOWERS = {
+  lotus: {
+    shape: "pointed", arrow: "#f6a9c6", center: ["#ffe6a0", "#d98e3a"], centerR: 0.2,
+    rings: [
+      { count: 8, len: 1.0, wid: 0.34, col: "#f7c9da", off: 0 },
+      { count: 8, len: 0.82, wid: 0.3, col: "#fde3ee", off: Math.PI / 8 },
+      { count: 7, len: 0.6, wid: 0.28, col: "#ffd98a", off: Math.PI / 7 },
+    ],
+  },
+  marigold: {
+    shape: "oval", arrow: "#f7991f", center: ["#c9701a", "#9a5212"], centerR: 0.14,
+    rings: [
+      { count: 16, len: 0.95, wid: 0.2, col: "#e8801f", off: 0 },
+      { count: 16, len: 0.78, wid: 0.2, col: "#f5a32c", off: Math.PI / 16 },
+      { count: 13, len: 0.58, wid: 0.19, col: "#ffc24a", off: 0 },
+      { count: 11, len: 0.4, wid: 0.18, col: "#ffd96a", off: Math.PI / 11 },
+    ],
+  },
+  hibiscus: {
+    shape: "broad", arrow: "#ef4d5e", center: ["#ffe07a", "#e8b53a"], centerR: 0.13, stamen: "#e8456a",
+    rings: [
+      { count: 5, len: 1.05, wid: 0.46, col: "#e23b4e", off: 0 },
+      { count: 5, len: 0.62, wid: 0.3, col: "#ff7d88", off: 0 },
+    ],
+  },
+  jasmine: {
+    shape: "slim", arrow: "#eef3f0", center: ["#fff0b0", "#f0c64e"], centerR: 0.1,
+    rings: [
+      { count: 6, len: 1.0, wid: 0.17, col: "#ffffff", off: 0 },
+      { count: 6, len: 0.74, wid: 0.16, col: "#eef4f2", off: Math.PI / 6 },
+    ],
+  },
+  rose: {
+    shape: "oval", arrow: "#e8506e", center: ["#a52742", "#7d1b32"], centerR: 0.16,
+    rings: [
+      { count: 9, len: 0.98, wid: 0.26, col: "#f06a86", off: 0 },
+      { count: 8, len: 0.76, wid: 0.25, col: "#e2486a", off: Math.PI / 8 },
+      { count: 7, len: 0.55, wid: 0.24, col: "#c5364f", off: 0 },
+      { count: 5, len: 0.36, wid: 0.22, col: "#a52742", off: Math.PI / 5 },
+    ],
+  },
+};
+
 export class Scene {
   constructor() {
     this.t = 0;              // seconds elapsed (level clock)
@@ -27,7 +85,9 @@ export class Scene {
     this.arrows = [];        // arrows in flight
     this.particles = [];     // impact sparks
     this.glows = [];         // soft radial blooms (perfect strike)
-    this.petals = [];        // level-clear celebration
+    this.petals = [];        // (legacy) generic petals — unused, lotus replaces it
+    this.lotus = null;       // blooming flower on a level clear
+    this.nextCue = null;     // pulsing "advance" chevron (after the flower opens)
     this.ambientRings = [];
     this.shakeMag = 0;
     this.shakeT = 0;
@@ -37,7 +97,12 @@ export class Scene {
     this.highContrast = false;
     this._slowT = 0;         // remaining real-time of the slow-mo window
     this._slowDur = 0.5;
+    this._slowFloor = 0.15;  // how far time slows (lower = nearer a freeze)
     this._ts = 1;            // current time scale (1 = normal speed)
+    this._heroT = 0;         // hero-moment overlay timer (flash / zoom / vignette)
+    this._heroDur = 0;
+    this._heroStrength = 0;
+    this._zoomAmt = 0;
     this.bow = { drawing: false, power: 0 };
 
     this._eye = { x: 0, y: 0 };
@@ -56,10 +121,14 @@ export class Scene {
     this.particles = [];
     this.glows = [];
     this.petals = [];
+    this.lotus = null;
+    this.nextCue = null;
     this.shakeMag = 0;
     this.shakeT = 0;
     this._slowT = 0;
     this._ts = 1;
+    this._heroT = 0;
+    this._zoomAmt = 0;
     this.bow.drawing = false;
     this.bow.power = 0;
   }
@@ -84,6 +153,7 @@ export class Scene {
   update(dt) {
     // Slow-mo envelope counts REAL time; the world advances at the scaled rate.
     if (this._slowT > 0) this._slowT = Math.max(0, this._slowT - dt);
+    if (this._heroT > 0) this._heroT = Math.max(0, this._heroT - dt);
     this._ts = this._timeScale();
     const wdt = dt * this._ts; // world dt
 
@@ -151,6 +221,12 @@ export class Scene {
     }
     this.petals = this.petals.filter((p) => p.age < p.life);
 
+    if (this.lotus) {
+      this.lotus.age += dt; // real time — it blooms outside gameplay
+      if (this.lotus.age > this.lotus.dur) this.lotus = null;
+    }
+    if (this.nextCue) this.nextCue.age += dt; // real time — drives the pulse
+
     for (const g of this.glows) g.age += wdt;
     this.glows = this.glows.filter((g) => g.age < g.dur);
 
@@ -162,13 +238,14 @@ export class Scene {
 
   _timeScale() {
     if (this._slowT <= 0) return 1;
+    const fl = this._slowFloor;
     const k = this._slowT / this._slowDur; // 1 at start → 0 at end
-    if (k > 0.4) return 0.15;              // held slow right after impact
-    return 0.15 + 0.85 * (1 - k / 0.4);    // ease back to normal over the tail
+    if (k > 0.45) return fl;               // held near-frozen at impact
+    return fl + (1 - fl) * (1 - k / 0.45); // ease back to normal over the tail
   }
 
   _spawn() {
-    const kinds = ["cloud", "bird", "leaf", "glare"];
+    const kinds = this.cfg.kinds || ["cloud", "bird", "leaf", "glare"];
     const kind = kinds[(this.rng() * kinds.length) | 0];
     const edge = this.rng() < 0.5 ? 0 : 1;
     const x = edge ? -80 : this.w + 80;
@@ -177,12 +254,12 @@ export class Scene {
       kind,
       x,
       y: this.rng() * this.h,
-      vx: dir * (20 + this.rng() * 50),
-      vy: (this.rng() - 0.5) * 26,
+      vx: dir * (55 + this.rng() * 120),   // livelier drift
+      vy: (this.rng() - 0.5) * 50,
       rot: this.rng() * Math.PI,
-      vr: (this.rng() - 0.5) * 1.2,
+      vr: (this.rng() - 0.5) * 1.6,
       size: 18 + this.rng() * 42,
-      life: 8 + this.rng() * 8,
+      life: 6 + this.rng() * 6,
     };
   }
 
@@ -235,50 +312,66 @@ export class Scene {
     this.shakeT = 0.32;
   }
 
-  // Slow-mo beat for the perfect strike — the savor moment.
-  slowmo(dur = 0.5) {
+  // Slow-mo beat — floor sets how near a freeze (lower = harder freeze).
+  slowmo(dur = 0.5, floor = 0.15) {
     if (this.reduceMotion) return;
     this._slowDur = dur;
+    this._slowFloor = floor;
     this._slowT = dur;
   }
 
-  // Golden bloom + rising gold motes from the pupil on a perfect strike.
-  bloom(x, y) {
-    this.glows.push({ x, y, age: 0, dur: 0.75 });
-    const n = this.reduceMotion ? 8 : 22;
+  // Golden bloom + rising gold motes; scales with the strike's strength.
+  bloom(x, y, strength = 1) {
+    this.glows.push({ x, y, age: 0, dur: 0.55 + strength * 0.35, max: this.fishRadius * (1.6 + strength * 1.8) });
+    const n = this.reduceMotion ? 6 : Math.round(10 + strength * 18);
     for (let i = 0; i < n; i++) {
-      const ang = -Math.PI / 2 + (Math.random() - 0.5) * 1.8;
-      const spd = 40 + Math.random() * 120;
+      const ang = -Math.PI / 2 + (Math.random() - 0.5) * 2;
+      const spd = (40 + Math.random() * 130) * (0.7 + strength * 0.5);
       this.particles.push({
         x, y,
         vx: Math.cos(ang) * spd,
         vy: Math.sin(ang) * spd,
         age: 0,
-        life: 0.6 + Math.random() * 0.6,
-        size: 1.5 + Math.random() * 2.8,
+        life: 0.6 + Math.random() * 0.7,
+        size: 1.5 + Math.random() * 3,
         color: Math.random() < 0.5 ? "#ffe8a8" : "#ffcf6b",
       });
     }
   }
 
-  // Soft rising petals for a level clear.
+  // A bold expanding shock ring from the strike point.
+  shockwave(x, y, strength = 1) {
+    this.impacts.push({
+      x, y, age: 0, dur: 0.45 + strength * 0.25, color: "#ffe8a8",
+      shock: true, max: this.fishRadius * (1.8 + strength * 2.6),
+    });
+  }
+
+  // Composed hero moment: bloom + shock + flash/zoom/vignette; the perfect
+  // strike (strength ~1) also gets a hard slow-mo freeze.
+  hero(x, y, strength = 1) {
+    this.bloom(x, y, strength);
+    this.shockwave(x, y, strength);
+    if (this.reduceMotion) return;
+    this._zoomAmt = 0.04 + strength * 0.1;
+    this._heroStrength = strength;
+    this._heroDur = strength >= 0.9 ? 0.75 : 0.34;
+    this._heroT = this._heroDur;
+    if (strength >= 0.9) this.slowmo(0.7, 0.05); // freeze only for dead-center
+  }
+
+  // The level's flower blooms open at the centre on a level clear.
   celebrate() {
-    const cols = ["#ffcf6b", "#f4a6c0", "#ffe8a8", "#d8b4f0"];
-    const n = this.reduceMotion ? 10 : 26;
-    for (let i = 0; i < n; i++) {
-      this.petals.push({
-        x: this.cx + (Math.random() - 0.5) * this.w * 0.7,
-        y: this.h * (0.5 + Math.random() * 0.5),
-        vx: (Math.random() - 0.5) * 30,
-        vy: -(30 + Math.random() * 70),
-        rot: Math.random() * Math.PI,
-        vr: (Math.random() - 0.5) * 2,
-        size: 6 + Math.random() * 8,
-        age: 0,
-        life: 1.8 + Math.random() * 1.2,
-        color: cols[(Math.random() * cols.length) | 0],
-      });
-    }
+    const type = (this.cfg && this.cfg.flower) || "lotus";
+    this.lotus = { age: 0, dur: 2.2, type };
+  }
+
+  // After the bloom, a chevron in the flower's colour pulses at the centre as
+  // the "tap anywhere to advance" cue. Persists until the next level starts.
+  showNextCue() {
+    const type = (this.cfg && this.cfg.flower) || "lotus";
+    const f = FLOWERS[type] || FLOWERS.lotus;
+    this.nextCue = { age: 0, col: f.arrow };
   }
 
   bowStart() { this.bow.drawing = true; this.bow.power = 0; }
@@ -297,18 +390,20 @@ export class Scene {
       const k = this.shakeT / 0.32;
       ctx.translate((Math.random() - 0.5) * this.shakeMag * k, (Math.random() - 0.5) * this.shakeMag * k);
     }
-    // Camera push-in toward the eye during the slow-mo beat.
-    if (this._ts < 0.999) {
-      const zoom = 1 + (1 - this._ts) * 0.05;
+    // Camera push-in toward the eye during the hero beat.
+    if (this._heroT > 0 && this._zoomAmt > 0) {
+      const k = this._heroT / this._heroDur; // 1 at impact → 0
+      const zoom = 1 + this._zoomAmt * k;
       ctx.translate(this._eye.x, this._eye.y);
       ctx.scale(zoom, zoom);
       ctx.translate(-this._eye.x, -this._eye.y);
     }
 
+    const P = this.cfg.palette || DEFAULT_PALETTE;
     const bg = ctx.createRadialGradient(cx, cy, 10, cx, cy, Math.max(w, h) * 0.7);
-    bg.addColorStop(0, "#10384a");
-    bg.addColorStop(0.6, "#0c2734");
-    bg.addColorStop(1, "#06161e");
+    bg.addColorStop(0, P.bg[0]);
+    bg.addColorStop(0.6, P.bg[1]);
+    bg.addColorStop(1, P.bg[2]);
     ctx.fillStyle = bg;
     ctx.fillRect(-w * 0.15 - 40, -h * 0.15 - 40, w * 1.3 + 80, h * 1.3 + 80);
 
@@ -321,9 +416,40 @@ export class Scene {
     this._drawGlows(ctx);
     this._drawParticles(ctx);
     this._drawPetals(ctx);
+    this._drawFlower(ctx);
+    this._drawNextCue(ctx);
     this._drawBow(ctx);
     this._vignette(ctx);
     ctx.restore();
+
+    this._drawHero(ctx); // full-screen flash/wash/vignette — outside the zoom
+  }
+
+  _drawHero(ctx) {
+    if (this._heroT <= 0) return;
+    const k = this._heroT / this._heroDur; // 1 → 0
+    const s = this._heroStrength;
+    const W = this.w, H = this.h;
+    // A brief white flash at the very moment of impact.
+    const flashK = Math.max(0, (this._heroT - (this._heroDur - 0.12)) / 0.12);
+    if (flashK > 0) {
+      ctx.save();
+      ctx.fillStyle = `rgba(255, 250, 235, ${0.5 * s * flashK})`;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+    // Gold wash over the whole scene.
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = `rgba(255, 200, 90, ${0.16 * s * k})`;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+    // Warm vignette pulse.
+    const v = ctx.createRadialGradient(this.cx, this.cy, Math.min(W, H) * 0.18, this.cx, this.cy, Math.max(W, H) * 0.7);
+    v.addColorStop(0, "rgba(0,0,0,0)");
+    v.addColorStop(1, `rgba(110, 60, 0, ${0.42 * s * k})`);
+    ctx.fillStyle = v;
+    ctx.fillRect(0, 0, W, H);
   }
 
   _drawGlows(ctx) {
@@ -332,11 +458,12 @@ export class Scene {
     ctx.globalCompositeOperation = "lighter";
     for (const g of this.glows) {
       const k = g.age / g.dur;
-      const r = this.fishRadius * (0.4 + k * 2.4);
-      const a = (1 - k) * 0.6;
+      const max = g.max || this.fishRadius * 2.4;
+      const r = max * (0.2 + k * 0.8);
+      const a = (1 - k) * 0.7;
       const rg = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, r);
-      rg.addColorStop(0, `rgba(255, 224, 150, ${a})`);
-      rg.addColorStop(0.5, `rgba(255, 200, 90, ${a * 0.4})`);
+      rg.addColorStop(0, `rgba(255, 242, 205, ${a})`);
+      rg.addColorStop(0.45, `rgba(255, 200, 90, ${a * 0.45})`);
       rg.addColorStop(1, "rgba(255, 200, 90, 0)");
       ctx.fillStyle = rg;
       ctx.beginPath();
@@ -359,6 +486,118 @@ export class Scene {
       ctx.fill();
       ctx.restore();
     }
+  }
+
+  // The level's flower opens from a centre seed-pod, layered petals out. Shape,
+  // petal counts, and colours come from FLOWERS[type]; all drawn procedurally.
+  _drawFlower(ctx) {
+    if (!this.lotus) return;
+    const f = FLOWERS[this.lotus.type] || FLOWERS.lotus;
+    const age = this.lotus.age, dur = this.lotus.dur;
+    const open = Math.min(1, age / 0.8);                    // opens over 0.8s
+    const ease = 1 - Math.pow(1 - open, 3);                 // easeOutCubic
+    const fade = age < dur * 0.7 ? 1 : Math.max(0, 1 - (age - dur * 0.7) / (dur * 0.3));
+    const base = Math.min(this.w, this.h) * 0.2;
+
+    ctx.save();
+    ctx.translate(this.cx, this.cy);
+    ctx.globalAlpha = fade;
+    for (const ring of f.rings) {
+      for (let i = 0; i < ring.count; i++) {
+        const a = ring.off + (i / ring.count) * Math.PI * 2;
+        ctx.save();
+        ctx.rotate(a);
+        const len = base * ring.len * (0.3 + 0.7 * ease);
+        const wid = base * ring.wid * (0.45 + 0.55 * ease);
+        this._petal(ctx, f.shape, len, wid);
+        ctx.fillStyle = ring.col;
+        ctx.fill();
+        ctx.strokeStyle = "rgba(120, 70, 80, 0.2)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+    // A protruding pistil for flowers that have one (hibiscus).
+    if (f.stamen) {
+      const sl = base * 0.95 * (0.3 + 0.7 * ease);
+      ctx.strokeStyle = f.stamen;
+      ctx.lineWidth = Math.max(2, base * 0.03);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, -sl);
+      ctx.stroke();
+      ctx.fillStyle = "#ffd86a";
+      ctx.beginPath();
+      ctx.arc(0, -sl, base * 0.05, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // seed-pod centre
+    const cr = base * f.centerR * (0.4 + 0.6 * ease);
+    const cg = ctx.createRadialGradient(0, 0, 0, 0, 0, cr);
+    cg.addColorStop(0, f.center[0]);
+    cg.addColorStop(1, f.center[1]);
+    ctx.fillStyle = cg;
+    ctx.beginPath();
+    ctx.arc(0, 0, cr, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // One petal in the local frame, pointing up (-y). Shape varies the silhouette.
+  _petal(ctx, shape, len, wid) {
+    ctx.beginPath();
+    if (shape === "pointed") {
+      ctx.moveTo(0, -len * 0.12);
+      ctx.quadraticCurveTo(wid, -len * 0.55, 0, -len);
+      ctx.quadraticCurveTo(-wid, -len * 0.55, 0, -len * 0.12);
+      ctx.closePath();
+    } else if (shape === "slim") {
+      ctx.ellipse(0, -len * 0.5, wid, len * 0.5, 0, 0, Math.PI * 2);
+    } else if (shape === "broad") {
+      ctx.ellipse(0, -len * 0.5, wid, len * 0.52, 0, 0, Math.PI * 2);
+    } else { // oval (rounded blob — marigold / rose)
+      ctx.ellipse(0, -len * 0.55, wid, len * 0.45, 0, 0, Math.PI * 2);
+    }
+  }
+
+  // The "tap anywhere to advance" cue: a chevron in the flower's colour pulsing
+  // at the centre, like the ripple's current. Drawn after the flower opens.
+  _drawNextCue(ctx) {
+    if (!this.nextCue) return;
+    // Hold back until the flower has begun to fade, so it reads as the flower
+    // "folding" into the chevron rather than the two overlapping.
+    const t = this.nextCue.age - 1.3;
+    if (t <= 0) return;
+    const inGrow = Math.min(1, t / 0.4);                    // ease-in entrance
+    const pulse = 0.5 + 0.5 * Math.sin(t * 4.2);            // 0..1 breathing
+    const s = Math.min(this.w, this.h) * 0.052 * (0.9 + 0.18 * pulse) * inGrow;
+    const col = this.nextCue.col;
+
+    ctx.save();
+    ctx.translate(this.cx, this.cy);
+    ctx.globalAlpha = (0.55 + 0.45 * pulse) * inGrow;
+    // soft disc behind so the chevron reads on any palette
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 2.4);
+    g.addColorStop(0, "rgba(6, 16, 22, 0.5)");
+    g.addColorStop(1, "rgba(6, 16, 22, 0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 2.4, 0, Math.PI * 2);
+    ctx.fill();
+    // double chevron pointing right
+    ctx.strokeStyle = col;
+    ctx.lineWidth = Math.max(4, s * 0.42);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    for (const ox of [-s * 0.55, s * 0.35]) {
+      ctx.beginPath();
+      ctx.moveTo(ox - s * 0.35, -s);
+      ctx.lineTo(ox + s * 0.55, 0);
+      ctx.lineTo(ox - s * 0.35, s);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   _drawBow(ctx) {
@@ -421,31 +660,92 @@ export class Scene {
     const bx = eye.x - Math.cos(facing) * R * 0.5;
     const by = eye.y - Math.sin(facing) * R * 0.5;
 
+    const bodyAlpha = 0.85 * (0.35 + 0.65 * clarity);
+    const P = this.cfg.palette || DEFAULT_PALETTE;
+
     ctx.save();
     ctx.translate(bx, by);
     ctx.rotate(facing);
-
-    const bodyAlpha = 0.85 * (0.35 + 0.65 * clarity);
-
-    ctx.beginPath();
-    ctx.moveTo(-R * 0.9, 0);
-    ctx.lineTo(-R * 1.5, -R * 0.5);
-    ctx.lineTo(-R * 1.3, 0);
-    ctx.lineTo(-R * 1.5, R * 0.5);
-    ctx.closePath();
-    ctx.fillStyle = `rgba(60, 120, 140, ${bodyAlpha})`;
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.ellipse(0, 0, R, R * 0.5, 0, 0, Math.PI * 2);
-    const grad = ctx.createLinearGradient(-R, 0, R, 0);
-    grad.addColorStop(0, `rgba(40, 96, 116, ${bodyAlpha})`);
-    grad.addColorStop(1, `rgba(90, 160, 180, ${bodyAlpha})`);
-    ctx.fillStyle = grad;
-    ctx.fill();
+    this._drawFishBody(ctx, R, P, bodyAlpha, this.cfg.fish || "minnow");
     ctx.restore();
 
     this._drawEye(ctx, eye.x, eye.y, R, clarity);
+  }
+
+  // Per-level silhouettes (same flat style). Local frame: +x = head/front (the
+  // eye sits at ~+0.5R), -x = tail. The eye is drawn separately, so the target
+  // never changes — only the body around it.
+  _drawFishBody(ctx, R, P, alpha, shape) {
+    const colA = hexA(P.fishA, alpha), colB = hexA(P.fishB, alpha);
+    const fin = hexA(P.fishA, alpha * 0.8);
+    const grad = ctx.createLinearGradient(-R, 0, R, 0);
+    grad.addColorStop(0, colA);
+    grad.addColorStop(1, colB);
+
+    const straightTail = (len, sp) => {
+      ctx.beginPath();
+      ctx.moveTo(-R * 0.85, 0);
+      ctx.lineTo(-R * len, -R * sp);
+      ctx.lineTo(-R * (len - 0.25), 0);
+      ctx.lineTo(-R * len, R * sp);
+      ctx.closePath(); ctx.fillStyle = fin; ctx.fill();
+    };
+    const forkedTail = (len, sp) => {
+      ctx.beginPath();
+      ctx.moveTo(-R * 0.8, 0);
+      ctx.lineTo(-R * len, -R * sp);
+      ctx.quadraticCurveTo(-R * (len - 0.35), 0, -R * len, R * sp);
+      ctx.closePath(); ctx.fillStyle = fin; ctx.fill();
+    };
+    const dorsal = (h, x0, x1) => {
+      ctx.beginPath();
+      ctx.moveTo(R * x0, -R * 0.26);
+      ctx.quadraticCurveTo(R * ((x0 + x1) / 2), -R * h, R * x1, -R * 0.22);
+      ctx.closePath(); ctx.fillStyle = fin; ctx.fill();
+    };
+    const lowerFin = (h, x0, x1) => {
+      ctx.beginPath();
+      ctx.moveTo(R * x0, R * 0.24);
+      ctx.quadraticCurveTo(R * ((x0 + x1) / 2), R * h, R * x1, R * 0.2);
+      ctx.closePath(); ctx.fillStyle = fin; ctx.fill();
+    };
+    const bill = (from, to) => {
+      ctx.beginPath();
+      ctx.moveTo(R * from, -R * 0.05);
+      ctx.lineTo(R * to, 0);
+      ctx.lineTo(R * from, R * 0.05);
+      ctx.closePath(); ctx.fillStyle = fin; ctx.fill();
+    };
+    const body = (rx, ry) => {
+      ctx.beginPath();
+      ctx.ellipse(0, 0, R * rx, R * ry, 0, 0, Math.PI * 2);
+      ctx.fillStyle = grad; ctx.fill();
+    };
+
+    switch (shape) {
+      case "finned":
+        straightTail(1.5, 0.5); dorsal(0.95, -0.15, 0.55); body(1.0, 0.5);
+        break;
+      case "halibut":
+        straightTail(1.25, 0.42); body(0.92, 0.72);
+        break;
+      case "tuna":
+        forkedTail(1.6, 0.6); dorsal(0.78, 0.05, 0.45); lowerFin(0.5, 0.05, 0.4); body(1.15, 0.42);
+        break;
+      case "swordfish":
+        forkedTail(1.5, 0.52); bill(0.9, 1.6); dorsal(0.6, -0.15, 0.55); body(1.05, 0.37);
+        break;
+      case "marlin":
+        forkedTail(1.6, 0.6); bill(0.95, 1.65);
+        ctx.beginPath();
+        ctx.moveTo(R * 0.55, -R * 0.3);
+        ctx.quadraticCurveTo(R * 0.15, -R * 1.25, -R * 0.35, -R * 0.3);
+        ctx.closePath(); ctx.fillStyle = fin; ctx.fill();
+        body(1.12, 0.35);
+        break;
+      default: // minnow
+        straightTail(1.5, 0.5); body(1.0, 0.5);
+    }
   }
 
   _drawEye(ctx, x, y, R, clarity) {
@@ -599,10 +899,10 @@ export class Scene {
     ctx.save();
     for (const im of this.impacts) {
       const k = im.age / im.dur;
-      const r = 6 + k * this.fishRadius * 0.9;
-      ctx.globalAlpha = (1 - k) * 0.8;
+      const r = 6 + k * (im.max || this.fishRadius * 0.9);
+      ctx.globalAlpha = (1 - k) * 0.85;
       ctx.strokeStyle = im.color;
-      ctx.lineWidth = 3 * (1 - k) + 0.5;
+      ctx.lineWidth = (im.shock ? 6 : 3) * (1 - k) + 0.5;
       ctx.beginPath();
       ctx.arc(im.x, im.y, r, 0, Math.PI * 2);
       ctx.stroke();
@@ -625,9 +925,10 @@ export class Scene {
 
   _vignette(ctx) {
     const { w, h } = this;
+    const P = this.cfg.palette || DEFAULT_PALETTE;
     const v = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.max(w, h) * 0.75);
     v.addColorStop(0, "rgba(0,0,0,0)");
-    v.addColorStop(1, "rgba(0,0,0,0.45)");
+    v.addColorStop(1, P.vig);
     ctx.fillStyle = v;
     ctx.fillRect(0, 0, w, h);
   }

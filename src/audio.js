@@ -64,7 +64,11 @@ export const Audio = {
   isMuted() { return muted; },
 
   twang() { blip({ freq: 300, type: "triangle", dur: 0.14, slideTo: 150, gain: 0.14 }); },
-  bullseye() { bell({ freq: 528, dur: 1.0, gain: 0.24 }); },
+  bullseye() {
+    bell({ freq: 528, dur: 1.5, gain: 0.3 });
+    setTimeout(() => bell({ freq: 792, dur: 1.0, gain: 0.12 }), 60);
+  },
+  chime() { bell({ freq: 680, dur: 0.55, gain: 0.18 }); },
   hit() {
     blip({ freq: 620, type: "sine", dur: 0.16, gain: 0.14 });
     setTimeout(() => blip({ freq: 930, type: "sine", dur: 0.16, gain: 0.07 }), 70);

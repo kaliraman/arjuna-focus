@@ -3,14 +3,17 @@
 // game.js can build the Focus meter (steadiness = focus).
 
 export class Input {
-  constructor(canvas, { onFire, onDraw }) {
+  constructor(canvas, { onFire, onDraw, onAdvance }) {
     this.canvas = canvas;
     this.onFire = onFire;
     this.onDraw = onDraw;
+    this.onAdvance = onAdvance;
     this.x = 0;
     this.y = 0;
     this.has = false;       // do we have a real pointer position yet
     this.active = false;    // accepting input (only while playing)
+    this.advanceMode = false; // level cleared: a tap anywhere advances
+    this._advDown = false;
     this.lastMove = { x: 0, y: 0 };
     this.speed = 0;         // px/sec of pointer travel (smoothed) -> steadiness
 
@@ -23,6 +26,13 @@ export class Input {
   setActive(on) {
     this.active = on;
     if (!on) { this.speed = 0; }
+  }
+
+  // While a level is cleared, gameplay input is off but a tap anywhere on the
+  // canvas advances to the next level (the centre chevron is the visual cue).
+  setAdvanceMode(on) {
+    this.advanceMode = on;
+    if (!on) this._advDown = false;
   }
 
   _pos(e) {
@@ -53,6 +63,7 @@ export class Input {
     c.addEventListener("pointermove", move, { passive: true });
 
     c.addEventListener("pointerdown", (e) => {
+      if (this.advanceMode) { this._advDown = true; return; }
       if (!this.active) return;
       // Capture helps track drags off-canvas, but must never break firing if it
       // throws (e.g. for synthetic or already-released pointers).
@@ -63,6 +74,11 @@ export class Input {
     });
 
     c.addEventListener("pointerup", (e) => {
+      if (this.advanceMode && this._advDown) {
+        this._advDown = false;
+        this.onAdvance?.();
+        return;
+      }
       if (!this.active || !this._down) return;
       move(e);
       // Fire on release at the current reticle position.
@@ -70,7 +86,7 @@ export class Input {
       this._down = null;
     });
 
-    c.addEventListener("pointercancel", () => { this._down = null; });
+    c.addEventListener("pointercancel", () => { this._down = null; this._advDown = false; });
 
     // Prevent long-press / context menus from interrupting touch play.
     c.addEventListener("contextmenu", (e) => e.preventDefault());

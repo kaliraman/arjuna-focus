@@ -6,6 +6,7 @@ import { Input } from "./input.js";
 import { UI } from "./ui.js";
 import { Audio } from "./audio.js";
 import { Game } from "./game.js";
+import { getLang, setLang, applyStatic } from "./strings.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -35,6 +36,7 @@ const input = new Input(canvas, {
     Audio.twang();
     game.fire(pos);
   },
+  onAdvance: () => game.nextLevel(),
 });
 
 const game = new Game({ scene, ui, audio: Audio, input });
@@ -95,7 +97,6 @@ on("btn-how", () => openInfo("how", "title"));
 on("btn-legend", () => openInfo("legend", "title"));
 on("btn-how-back", () => ui.show(infoReturn));
 on("btn-legend-back", () => ui.show(infoReturn));
-on("btn-next", () => game.nextLevel());
 on("btn-finale-again", () => game.newGame());
 on("btn-finale-endless", () => game.keepGoing());
 on("btn-finale-home", () => game.toTitle());
@@ -110,6 +111,17 @@ on("btn-menu-sound", () => ui.setMuted(Audio.toggleMute()));
 on("btn-menu-motion", () => { scene.reduceMotion = !scene.reduceMotion; ui.setReduceMotion(scene.reduceMotion); });
 on("btn-menu-contrast", () => { scene.highContrast = !scene.highContrast; ui.setContrast(scene.highContrast); });
 
+// Language: apply current language, then toggle EN <-> Hindi on the globe.
+function refreshLang() {
+  applyStatic();
+  document.documentElement.lang = getLang();
+  ui.setMuted(Audio.isMuted());
+  ui.setReduceMotion(scene.reduceMotion);
+  ui.setContrast(scene.highContrast);
+}
+on("lang-btn", () => { setLang(getLang() === "en" ? "hi" : "en"); refreshLang(); });
+
 // Start on the title screen.
+refreshLang();
 ui.show("title");
 ui.setPlaying(false);

@@ -7,6 +7,7 @@
 
 import { getLevel, LEVEL_COUNT, CHALLENGE_COUNT } from "./levels.js";
 import { scoreShot } from "./scoring.js";
+import { t } from "./strings.js";
 
 export class Game {
   constructor({ scene, ui, audio, input }) {
@@ -39,23 +40,33 @@ export class Game {
 
     this.state = "playing";
     this.ui.hideScreens();
+    this.input.setAdvanceMode(false);
     this.ui.setPlaying(true);
     const label = this._levelLabel();
     this.ui.setHud({ levelLabel: label, score: this.score, eyeHits: 0, eyeGoal: cfg.eyeHits });
-    this.ui.showLevelIntro({ label, name: cfg.name, calibration: !!cfg.calibration });
+    this.ui.setLevelName(cfg.calibration ? t("warmup") : this._levelName(cfg));
     this.input.setActive(true);
   }
 
-  // "Warm-up" for the calibration level, "3 / 8" for numbered levels, "Endless" beyond.
+  // The LEVEL chip is a pure progress counter, so it never echoes the big level
+  // name: "3 / 8" for the numbered run, null for the warm-up (chip hidden, since
+  // there's no number yet), and "∞" for endless (the name already reads
+  // "Endless N").
   _levelLabel() {
-    if (this.cfg.calibration) return "Warm-up";
+    if (this.cfg.calibration) return null;
     if (this.levelIndex <= CHALLENGE_COUNT) return `${this.levelIndex} / ${CHALLENGE_COUNT}`;
-    return "Endless";
+    return "∞";
+  }
+
+  _levelName(cfg) {
+    if (cfg.key === "endless") return `${t("lvl_endless")} ${cfg.endlessN}`;
+    return t(`lvl_${cfg.key}`);
   }
 
   // ---- per-frame ------------------------------------------------------------
   update(dt) {
-    if (this.state !== "playing") return;
+    // Keep the scene (and the lotus) animating through the non-blocking clear.
+    if (this.state !== "playing" && this.state !== "cleared") return;
     this.scene.update(dt);
   }
 
@@ -76,69 +87,72 @@ export class Game {
 
     // Feedback, scaled by how good the hit was.
     if (result.ring.key === "bullseye") {
-      // THE payoff: slow-mo savor beat, golden bloom, a word blooms.
-      this.scene.slowmo(0.5);
-      this.scene.bloom(eye.x, eye.y);
-      this.scene.addImpact(eye.x, eye.y, result.ring.color);
-      this.scene.shake(10);
+      // Dead-center: the full hero moment — freeze, flash, bloom, swelling bell.
+      this.scene.hero(eye.x, eye.y, 1.0);
+      this.scene.shake(13);
       this.audio.bullseye();
       this.ui.wordBloom("एकाग्रता");
-      this.ui.toastMsg(`${result.ring.label} +${result.points}`, result.ring.color);
+      this.ui.toastMsg(`${t("ring_" + result.ring.key)} +${result.points}`, result.ring.color);
+      this._haptic(35);
     } else if (result.eyeHit) {
-      this.scene.addImpact(pos.x, pos.y, result.ring.color);
-      this.scene.burst(pos.x, pos.y, result.ring.color, 14, 1.0);
-      this.scene.shake(6);
-      this.audio.hit();
+      // Any eye-strike gets a snappy, satisfying pop (no time-freeze).
+      this.scene.hero(eye.x, eye.y, 0.55);
+      this.scene.shake(7);
+      this.audio.chime();
       this.ui.wordBloom("साधु");
-      this.ui.toastMsg(`${result.ring.label} +${result.points}`, result.ring.color);
+      this.ui.toastMsg(`${t("ring_" + result.ring.key)} +${result.points}`, result.ring.color);
+      this._haptic(15);
     } else if (result.points > 0) {
       this.scene.addImpact(pos.x, pos.y, result.ring.color);
       this.scene.burst(pos.x, pos.y, result.ring.color, 8, 0.6);
       this.scene.shake(3);
       this.audio.hit();
-      this.ui.toastMsg(`${result.ring.label} +${result.points}`, result.ring.color);
+      this.ui.toastMsg(`${t("ring_" + result.ring.key)} +${result.points}`, result.ring.color);
     } else {
       // Soft landing: gentle splash, mellow tone, no shake, mostly quiet.
       this.scene.addImpact(pos.x, pos.y, "#8fb8c8");
       this.scene.burst(pos.x, pos.y, "#9fc6d6", 5, 0.4);
       this.audio.softMiss();
-      const line = this._missLine();
-      if (line) this.ui.toastMsg(line, "#9fb6bd");
+      const key = this._missLine();
+      if (key) this.ui.toastMsg(t(key), "#9fb6bd");
     }
 
     if (result.eyeHit) this.eyeHits += 1;
     this.ui.setHud({ score: this.score, eyeHits: this.eyeHits, eyeGoal: this.cfg.eyeHits });
 
-    // Advance once the eye has been struck enough times — with a victory lap so
-    // the celebration petals animate before the screen appears.
+    // Advance once the eye has been struck enough times.
     if (this.eyeHits >= this.cfg.eyeHits && !this._advancing) {
       this._advancing = true;
       this.input.setActive(false);
-      this.scene.celebrate();
+      this.scene.celebrate();   // the lotus blooms
       this.audio.levelUp();
-      setTimeout(() => this._completeLevel(), 1000);
+      const isFinal = !this.cfg.calibration && this.levelIndex === CHALLENGE_COUNT;
+      this.state = "cleared";   // scene keeps animating (the lotus)
+      if (isFinal) {
+        // Let the lotus open, then show the fuller finale screen.
+        setTimeout(() => {
+          this.state = "finale";
+          this.ui.setPlaying(false);
+          this.ui.showFinale({ total: this.score });
+        }, 1800);
+      } else {
+        // Non-blocking: keep the pool + flower on screen. The flower folds into
+        // a pulsing chevron at the centre (its own colour); a tap anywhere
+        // advances.
+        this.ui.clearObjective();
+        this.scene.showNextCue();
+        this.input.setAdvanceMode(true);
+      }
     }
+  }
+
+  _haptic(ms) {
+    try { if (navigator.vibrate && !this.scene.reduceMotion) navigator.vibrate(ms); } catch { /* unsupported */ }
   }
 
   _missLine() {
     if (Math.random() > 0.35) return null; // usually stay quiet
-    const lines = [
-      "So close — lead it a breath further.",
-      "Breathe. See only the eye.",
-      "The eye keeps moving — aim ahead.",
-    ];
-    return lines[(Math.random() * lines.length) | 0];
-  }
-
-  _completeLevel() {
-    this.ui.setPlaying(false);
-    if (!this.cfg.calibration && this.levelIndex === CHALLENGE_COUNT) {
-      this.state = "finale";
-      this.ui.showFinale({ total: this.score });
-    } else {
-      this.state = "levelcomplete";
-      this.ui.showLevelComplete({ total: this.score, calibration: !!this.cfg.calibration });
-    }
+    return ["miss1", "miss2", "miss3"][(Math.random() * 3) | 0];
   }
 
   nextLevel() {

@@ -1,5 +1,7 @@
-// DOM glue: screens, HUD (level, cumulative score, eye-strike objective),
-// toasts, the level-intro card, and the finale. All lookups live here.
+// DOM glue: screens, HUD, toasts, the level-intro card, the non-blocking
+// "cleared" bar, and the finale. Text comes through the i18n layer.
+
+import { t } from "./strings.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -10,29 +12,24 @@ export class UI {
       how: $("screen-how"),
       legend: $("screen-legend"),
       menu: $("screen-menu"),
-      level: $("screen-level"),
       finale: $("screen-finale"),
     };
     this.hud = $("hud");
     this.objective = $("objective");
-    this.levelIntro = $("level-intro");
+    this.levelName = $("level-name");
     this.toast = $("toast");
     this.wordBloomEl = $("word-bloom");
     this.el = {
       level: $("hud-level"),
+      levelItem: $("hud-level-item"),
       score: $("hud-score"),
       objectivePips: $("objective-pips"),
-      introLabel: $("level-intro-label"),
-      introName: $("level-intro-name"),
       sound: $("btn-menu-sound"),
       motion: $("btn-menu-motion"),
       contrast: $("btn-menu-contrast"),
-      levelTitle: $("level-title"),
-      levelSummary: $("level-summary"),
       finaleSub: $("finale-sub"),
     };
     this._toastTimer = null;
-    this._introTimer = null;
     this._wordTimer = null;
   }
 
@@ -49,7 +46,13 @@ export class UI {
   }
 
   setHud({ levelLabel, score, eyeHits, eyeGoal }) {
-    if (levelLabel != null) this.el.level.textContent = levelLabel;
+    // levelLabel === null → no number applies (the warm-up): hide the chip so it
+    // doesn't echo the big level name. undefined → leave the chip untouched.
+    if (levelLabel !== undefined) {
+      const hide = levelLabel === null;
+      this.el.levelItem.classList.toggle("hidden", hide);
+      if (!hide) this.el.level.textContent = levelLabel;
+    }
     if (score != null) this.el.score.textContent = score.toLocaleString();
     if (eyeGoal != null) {
       this.objective.classList.remove("hidden");
@@ -61,44 +64,34 @@ export class UI {
   }
 
   toastMsg(text, color) {
-    const t = this.toast;
-    t.textContent = text;
-    t.style.color = color || "var(--accent)";
-    t.classList.remove("hidden", "show");
-    void t.offsetWidth;
-    t.classList.add("show");
+    const el = this.toast;
+    el.textContent = text;
+    el.style.color = color || "var(--accent)";
+    el.classList.remove("hidden", "show");
+    void el.offsetWidth;
+    el.classList.add("show");
     clearTimeout(this._toastTimer);
-    this._toastTimer = setTimeout(() => t.classList.add("hidden"), 900);
+    this._toastTimer = setTimeout(() => el.classList.add("hidden"), 900);
   }
 
-  // Brief title card at the start of each level.
-  showLevelIntro({ label, name, calibration }) {
-    this.el.introLabel.textContent = calibration ? "Warm-up" : `Level ${label}`;
-    this.el.introName.textContent = calibration ? "Find the eye — and nothing else" : name;
-    const c = this.levelIntro;
-    c.classList.remove("hidden", "show");
-    void c.offsetWidth;
-    c.classList.add("show");
-    clearTimeout(this._introTimer);
-    this._introTimer = setTimeout(() => c.classList.add("hidden"), 1900);
+  // Persistent level name, top-center (with a small entrance animation).
+  setLevelName(name) {
+    const el = this.levelName;
+    el.textContent = name;
+    el.classList.remove("hidden", "show");
+    void el.offsetWidth;
+    el.classList.add("show");
   }
 
-  showLevelComplete({ total, calibration }) {
-    this.el.levelTitle.textContent = calibration ? "Warm-up done" : "Level complete";
-    this.el.levelSummary.textContent = calibration ? "Now — see only the eye." : `Score ${total.toLocaleString()}`;
-    this.show("level");
-  }
+  // Non-blocking level clear: the scene + flower stay visible (the centre
+  // chevron is drawn on the canvas by the scene), so just clear the objective.
+  clearObjective() { this.objective.classList.add("hidden"); }
 
   showFinale({ total }) {
-    this.el.finaleSub.textContent = `Final score ${total.toLocaleString()}`;
+    this.el.finaleSub.textContent = `${t("finalScore")} ${total.toLocaleString()}`;
     this.show("finale");
   }
 
-  setMuted(muted) { this.el.sound.textContent = muted ? "Sound: off" : "Sound: on"; }
-  setReduceMotion(on) { this.el.motion.textContent = on ? "Motion: reduced" : "Motion: full"; }
-  setContrast(on) { this.el.contrast.textContent = on ? "High contrast: on" : "High contrast: off"; }
-
-  // A Sanskrit/Hindi word blooms and fades center-screen on a strike.
   wordBloom(text) {
     const el = this.wordBloomEl;
     el.textContent = text;
@@ -108,4 +101,8 @@ export class UI {
     clearTimeout(this._wordTimer);
     this._wordTimer = setTimeout(() => el.classList.add("hidden"), 900);
   }
+
+  setMuted(muted) { this.el.sound.textContent = muted ? t("soundOff") : t("soundOn"); }
+  setReduceMotion(on) { this.el.motion.textContent = on ? t("motionReduced") : t("motionFull"); }
+  setContrast(on) { this.el.contrast.textContent = on ? t("contrastOn") : t("contrastOff"); }
 }
